@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">GridPuzzle_solver</string>
+    <string name="grid_puzzle_sudoku">Sudoku</string>
+    <string name="bottom_nav_item_other">Other</string>
 </resources>

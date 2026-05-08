@@ -5,24 +5,28 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.jozeftvrdy.solver.gridpuzzle.ui.theme.GridPuzzle_solverTheme
+import androidx.navigation.compose.rememberNavController
+import com.jozeftvrdy.solver.gridpuzzle.navigation.MainNavHost
+import com.jozeftvrdy.solver.gridpuzzle.ui.theme.GridPuzzleSolverTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            GridPuzzle_solverTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+            GridPuzzleSolverTheme {
+                val navController = rememberNavController()
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                ) { scaffoldPadding ->
+                    MainNavHost(
+                        scaffoldPadding,
+                        navController,
                     )
                 }
             }
@@ -41,7 +45,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    GridPuzzle_solverTheme {
+    GridPuzzleSolverTheme {
         Greeting("Android")
     }
 }
