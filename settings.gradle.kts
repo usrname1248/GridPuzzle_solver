@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "GridPuzzle_solver"
 include(":app")
- 
+include(":features:puzzles")
+include(":feature:sudoku")
