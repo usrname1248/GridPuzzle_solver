@@ -1,26 +1,46 @@
 package com.jozeftvrdy.solver.sudoku.data
 
+import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
+import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
+import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-internal class SudokuField {
-    val allValues: List<SudokuTileValueHolder> = List(size = 9*9) { index ->
+internal class SudokuField(
+    val sudokuFieldWidth: Int,
+    val sudokuFieldHeight: Int,
+    val areaWidth: Int,
+    val areaHeight: Int,
+    values: List<SudokuTileValueInputModel>
+) {
+    constructor(
+        inputModel: SudokuFieldInputModel,
+        values: List<SudokuTileValueInputModel>
+    ): this(
+        sudokuFieldWidth  = inputModel.sudokuFieldWidth,
+        sudokuFieldHeight = inputModel.sudokuFieldHeight,
+        areaWidth         = inputModel.areaWidth,
+        areaHeight        = inputModel.areaHeight,
+        values            = values,
+    )
+
+    val allValues: List<SudokuTileValueHolder> = List(size = sudokuFieldHeight * sudokuFieldWidth) { index ->
         SudokuTileValueHolder(
             position = SudokuPosition(
-                x = index % 9 + 1,
-                y = index / 9 + 1
+                x = index % sudokuFieldWidth + 1,
+                y = index / sudokuFieldWidth + 1
             ),
             tileValue = SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue()
         )
     }
 
-    val rows: List<SudokuRow> = allValues.chunked(9).map {
+    val rows: List<SudokuRow> = allValues.chunked(sudokuFieldWidth).map {
         SudokuRow(it)
     }
 
@@ -28,36 +48,60 @@ internal class SudokuField {
         return rows[position.y - 1]
     }
 
-    val columns: List<SudokuColumn> = (0 until 9).map { colIndex ->
-        rows.map { row -> row[colIndex] }
-    }.map {
-        SudokuColumn(it)
+    val columns: List<SudokuColumn> = (0 until sudokuFieldWidth).map { colIndex ->
+        SudokuColumn(
+            rows.map { row -> row[colIndex] }
+        )
     }
 
     fun columnAt(position: SudokuPosition) : SudokuColumn {
         return columns[position.x - 1]
     }
 
-    val squares: List<SudokuSquare> = allValues
-        .chunked(9)
-        .chunked(3)
-        .flatMap { threeRows ->
-            (0 until 3).map { colGroup ->
-                threeRows.flatMap { row ->
-                    row.subList(colGroup * 3, (colGroup + 1) * 3)
+    val squares: List<SudokuSquare> = run {
+        val horizontalSquareCount = sudokuFieldWidth / areaWidth
+        val verticalSquareCount = sudokuFieldHeight / areaHeight
+
+        List(horizontalSquareCount * verticalSquareCount) { index ->
+            val squareX = index % horizontalSquareCount
+            val squareY = index / horizontalSquareCount
+            val startX = squareX * areaWidth
+            val startY = squareY * areaHeight
+
+            val tiles = mutableListOf<SudokuTileValueHolder>()
+            for (yOffset in 0 until areaHeight) {
+                val row = rows[startY + yOffset]
+                for (xOffset in 0 until areaWidth) {
+                    tiles.add(row[startX + xOffset])
                 }
             }
+            SudokuSquare(tiles)
         }
-        .map {
-            SudokuSquare(it)
-        }
+    }
+
 
     fun squareAt(position: SudokuPosition) : SudokuSquare {
-        return squares[(position.y - 1) / 3 * 3 + (position.x - 1) / 3]
+        val horizontalSquareCount = sudokuFieldWidth / areaWidth
+        val squareX = (position.x - 1) / areaWidth
+        val squareY = (position.y - 1) / areaHeight
+        return squares[squareY * horizontalSquareCount + squareX]
     }
 
     operator fun get(position: SudokuPosition): SudokuTileValueHolder {
         return rows[position.y - 1][position.x -1]
+    }
+
+    init {
+        values.forEach { inputModel ->
+            setNumberToPosition(
+                value = inputModel.value,
+                position = inputModel.position,
+                isFixed = when (inputModel.tileType) {
+                    SudokuInputTileType.FixedValue -> true
+                    SudokuInputTileType.SolvedValue -> false
+                },
+            )
+        }
     }
 
     fun setNumberToPosition(

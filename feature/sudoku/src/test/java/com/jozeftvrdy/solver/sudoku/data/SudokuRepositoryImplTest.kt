@@ -2,9 +2,11 @@ package com.jozeftvrdy.solver.sudoku.data
 
 import com.jozeftvrdy.solver.sudoku.model.FinalSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
+import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
+import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.test.runTest
@@ -66,6 +68,18 @@ class SudokuRepositoryImplTest {
         0, 0, 0,    1, 0, 5,    8, 0, 0,
         0, 0, 0,    0, 0, 0,    5, 0, 0,
     )
+
+    val sudoku6Size = listOf(
+        6, 3, 0,    1, 4, 0,
+        0, 0, 0,    0, 2, 0,
+
+        0, 2, 0,    3, 6, 4,
+        3, 4, 6,    5, 0, 0,
+
+        0, 0, 0,    0, 0, 1,
+        4, 5, 1,    2, 3, 0,
+    )
+
     @Test
     fun `Test that when solve input has duplicates, specific failure result is returned`() = runTest {
 
@@ -80,7 +94,8 @@ class SudokuRepositoryImplTest {
                     } else {
                         it
                     }
-                }
+                },
+                SudokuFieldInputModel.classicSudoku9,
             ).last().also {
                 assertIs<FinalSudokuResult.Failure.InputWithDuplicate>(it)
                 assert(it.value1 == position1 || it.value2 == position1)
@@ -107,7 +122,7 @@ class SudokuRepositoryImplTest {
             } else it
         }.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput).last()
+        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
         assertIs<FinalSudokuResult.Success>(result)
         assertEquals(completedSudoku, result.successValues.map {
             it.value
@@ -118,7 +133,7 @@ class SudokuRepositoryImplTest {
     fun `Test that solves function solves valid expert sudoku`() = runTest {
         val modifiedSudokuInput = masterDifficultySudoku.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput).last()
+        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
         assertIs<FinalSudokuResult.Success>(result)
 
         // checkUniqueValues in row
@@ -182,7 +197,7 @@ class SudokuRepositoryImplTest {
     fun `Test that all final result contains all input data`() = runTest {
         val modifiedSudokuInput = masterDifficultySudoku.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput).last()
+        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
         assertIs<FinalSudokuResult.Success>(result)
 
         // check that result does not changed fixed data
@@ -200,7 +215,8 @@ class SudokuRepositoryImplTest {
         }.toMutableList()
 
         repo.solve(
-            masterDifficultySudoku.toSudokuTileValueInputModel()
+            masterDifficultySudoku.toSudokuTileValueInputModel(),
+            SudokuFieldInputModel.classicSudoku9,
         ).collect { result ->
             when (result) {
                 is FinalSudokuResult.Failure.InputWithDuplicate -> assert(false)
@@ -222,7 +238,8 @@ class SudokuRepositoryImplTest {
         val partialResults = mutableListOf<PartiallySolvedSudokuResult>()
 
         repo.solve(
-            veryEasySudoku.toSudokuTileValueInputModel()
+            veryEasySudoku.toSudokuTileValueInputModel(),
+            SudokuFieldInputModel.classicSudoku9,
         ).collect { result ->
             when (result) {
                 is FinalSudokuResult.Failure.InputWithDuplicate -> assert(false)
@@ -327,13 +344,84 @@ class SudokuRepositoryImplTest {
         }?:assert(false)
     }
 
-    private fun List<Int>.toSudokuTileValueInputModel(): List<SudokuTileValueInputModel> = this.mapIndexedNotNull { index, value ->
-            if (value in 1..9) {
+    @Test
+    fun `Test that solves function works on sudoku 6x6`() = runTest {
+        val squareIndexes = listOf(
+            0, 0, 0,    1, 1, 1,
+            0, 0, 0,    1, 1, 1,
+
+            2, 2, 2,    3, 3, 3,
+            2, 2, 2,    3, 3, 3,
+
+           4, 4, 4,    5, 5, 5,
+           4, 4, 4,    5, 5, 5,
+        )
+
+        val resultField = sudoku6Size.chunked(6).map {
+            it.toMutableList()
+        }.let { reversedField ->
+            MutableList(6) { xIndex ->
+                MutableList(6) { yIndex ->
+                    reversedField[yIndex][xIndex]
+                }
+            }
+        }
+
+        lateinit var successValues: List<SudokuTileValueFullSolvedModel>
+
+        repo.solve(
+            values = sudoku6Size.toSudokuTileValueInputModel(maxValue = 6),
+            fieldParams = SudokuFieldInputModel(
+                sudokuFieldSize = 6,
+                areaWidth = 3,
+                areaHeight = 2,
+            )
+        ).collect {
+            when (it) {
+                is FinalSudokuResult.Failure.InputWithDuplicate -> assert(false)
+                FinalSudokuResult.Failure.NoSolutionFound -> assert(false)
+                is FinalSudokuResult.Success -> {
+                    successValues = it.successValues
+                }
+                is PartiallySolvedSudokuResult -> {
+                    println(
+                        "at [x = ${it.position.x}, y = ${it.position.y}, is value ${it.value}, because ${it.reason.solveType}"
+                    )
+                    resultField[it.position.x-1][it.position.y-1] = it.value
+                }
+            }
+        }
+
+        assert(successValues.size >= 0)
+        successValues.forEach {
+            assertEquals(it.value, resultField[it.position.x - 1][it.position.y - 1])
+        }
+
+        val squares = successValues.mapIndexed(::Pair).groupBy {
+            squareIndexes[it.first]
+        }
+
+        for (index in 0..5) {
+            // check row
+            assertEquals(6, resultField[index].toSet().size)
+            // check column
+            assertEquals(6, (0..5).map {
+                resultField[it][index]
+            }.toSet().size)
+            // check square
+            assertEquals(6, squares[index]!!.map { it.second.value }.toSet().size)
+        }
+
+        println(resultField)
+    }
+
+    private fun List<Int>.toSudokuTileValueInputModel(maxValue: Int = 9): List<SudokuTileValueInputModel> = this.mapIndexedNotNull { index, value ->
+            if (value in 1..maxValue) {
                 SudokuTileValueInputModel(
                     value = value,
                     position = SudokuPosition(
-                        x = (index % 9 ) + 1,
-                        y = (index / 9 ) + 1,
+                        x = (index % maxValue ) + 1,
+                        y = (index / maxValue ) + 1,
                     ),
                     tileType = SudokuInputTileType.SolvedValue
                 )

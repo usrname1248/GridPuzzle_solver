@@ -2,7 +2,7 @@ package com.jozeftvrdy.solver.sudoku.data
 
 import com.jozeftvrdy.solver.sudoku.model.FinalSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
-import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
+import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuResult
 import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
@@ -37,19 +37,11 @@ internal data class ItemSolution(
 )
 
 class SudokuRepositoryImpl: SudokuRepository {
-    override suspend fun solve(input: List<SudokuTileValueInputModel>): Flow<SudokuResult> = flow {
-        val sudokuField = SudokuField().apply {
-            input.forEach { inputModel ->
-                setNumberToPosition(
-                    value = inputModel.value,
-                    position = inputModel.position,
-                    isFixed = when (inputModel.tileType) {
-                        SudokuInputTileType.FixedValue -> true
-                        SudokuInputTileType.SolvedValue -> false
-                    },
-                )
-            }
-        }
+    override suspend fun solve(values: List<SudokuTileValueInputModel>, fieldParams: SudokuFieldInputModel): Flow<SudokuResult> = flow {
+        val sudokuField = SudokuField(
+            inputModel = fieldParams,
+            values = values,
+        )
 
         sudokuField.findFirstInvalidEntry()?.let {
             emit( FinalSudokuResult.Failure.InputWithDuplicate(

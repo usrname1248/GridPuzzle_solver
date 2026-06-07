@@ -4,6 +4,7 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 // manually written
@@ -11,7 +12,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that all items count are 81, and are ordered correctly`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         assert(sudokuField.allValues.size == 81)
         var x = 1
         var y = 1
@@ -30,7 +31,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that row items count are 81, and are ordered correctly`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         assert(sudokuField.rows.size == 9)
         assert(sudokuField.rows.all { it.items.size == 9 })
 
@@ -44,7 +45,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that columns items count are 81, and are ordered correctly`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         assert(sudokuField.columns.size == 9)
         assert(sudokuField.columns.all { it.items.size == 9 })
 
@@ -58,7 +59,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that square items count are 81, and are ordered correctly`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         assert(sudokuField.squares.size == 9)
         assert(sudokuField.squares.all { it.items.size == 9 })
 
@@ -81,8 +82,32 @@ class SudokuFieldTest {
     }
 
     @Test
+    fun `Test that all items count are 192, and are ordered correctly`() = runTest {
+        val sudokuField = SudokuField(
+            sudokuFieldWidth = 16,
+            sudokuFieldHeight = 12,
+            areaWidth = 4,
+            areaHeight = 3,
+            emptyList()
+        )
+        assertEquals(16*12, sudokuField.allValues.size)
+        assertEquals(12, sudokuField.rows.size)
+        assertEquals(16, sudokuField.columns.size)
+        assertEquals(16, sudokuField.squares.size)
+        assert(sudokuField.rows.all {
+            it.items.size == 16
+        })
+        assert(sudokuField.columns.all {
+            it.items.size == 12
+        })
+        assert(sudokuField.squares.all {
+            it.items.size == 12
+        })
+    }
+
+    @Test
     fun `Test that setNumberToPosition sets number to position`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         // run test for setNumberToPosition with not fixed position
         run {
             val positon1 = SudokuPosition(1,1)
@@ -114,7 +139,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that columnAt return correct collections`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
 
         SudokuPosition(1,1).let { position ->
             sudokuField.columnAt(position) == sudokuField.columns.findCollectionWithPosition(position)
@@ -131,7 +156,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that rowAt return correct collections`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
 
         SudokuPosition(1,1).let { position ->
             sudokuField.rowAt(position) == sudokuField.rows.findCollectionWithPosition(position)
@@ -148,7 +173,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that squareAt return correct collections`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
 
         SudokuPosition(1,1).let { position ->
             sudokuField.squareAt(position) == sudokuField.squares.findCollectionWithPosition(position)
@@ -176,7 +201,7 @@ class SudokuFieldTest {
 
     @Test
     fun `Test that setNumberToPosition invalidates options in row, column and square`() = runTest {
-        val sudokuField = SudokuField()
+        val sudokuField = createSudokuField()
         // run test for setNumberToPosition with not fixed position
         run {
             val positon1 = SudokuPosition(1,1)
@@ -221,6 +246,14 @@ class SudokuFieldTest {
                 }
         }
     }
+
+    private fun createSudokuField() = SudokuField(
+        sudokuFieldWidth = 9,
+        sudokuFieldHeight = 9,
+        areaWidth = 3,
+        areaHeight = 3,
+        emptyList()
+    )
 
 
 }
