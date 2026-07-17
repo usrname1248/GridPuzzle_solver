@@ -1,19 +1,23 @@
 package com.jozeftvrdy.solver.sudoku.data
 
 import androidx.annotation.VisibleForTesting
+import com.jozeftvrdy.solver.sudoku.model.SudokuAreaDomainModel
+import com.jozeftvrdy.solver.sudoku.model.SudokuAreaPriority
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
-import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
+import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 
-internal abstract class SudokuArea {
+internal data class SudokuArea(
+    @get:VisibleForTesting
+    val tiles: List<SudokuTile>,
+    val priority: SudokuAreaPriority,
+    val tag: Any? = null,
+) {
 
-    @VisibleForTesting
-    abstract val items: List<SudokuTileValueHolder>
-    protected abstract val solveType: SudokuSolveType
-    operator fun get(index: Int): SudokuTileValueHolder = items[index]
+    operator fun get(index: Int): SudokuTile = tiles[index]
 
-    fun findDuplicates(): Pair<SudokuTileValueHolder, SudokuTileValueHolder>? {
-        items.groupBy {
+    fun findDuplicates(): Pair<SudokuTile, SudokuTile>? {
+        tiles.groupBy {
             it.tileValue.valueOrNull()
         }.forEach {
             if (it.key != null && it.value.size > 1) {
@@ -24,20 +28,44 @@ internal abstract class SudokuArea {
         return null
     }
 
-    fun removePossibilitiesIfMissing(value: Int, becauseOfPosition: SudokuPosition, force: Boolean = false) {
-        items.forEach {
+    fun removePossibilitiesIfMissing(value: Int, becauseOfPosition: SudokuPosition, priority: SudokuAreaPriority) {
+        tiles.forEach {
             when (val tileValue = it.tileValue) {
                 is SudokuTileValueDataModel.FixedTileValue,
                 is SudokuTileValueDataModel.FlexibleTileValue.SolvedTileValue -> {}
                 is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> {
-                    tileValue.removePossibilityIfMissing(value, becauseOfPosition, force)
+                    tileValue.removePossibilityIfMissing(value, becauseOfPosition, priority)
                 }
             }
         }
     }
 
+    fun findSingleUnsolvedTileSolution(): ItemSolution? {
+        var theOnlyUnsolvedTile: SudokuTile? = null
+        tiles.forEach { tile ->
+            if (tile.tileValue is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue) {
+                // we have already found one unsolved, so this have to be second
+                if (theOnlyUnsolvedTile != null) {
+                    return null
+                }
+
+                theOnlyUnsolvedTile = tile
+            }
+        }
+
+        return theOnlyUnsolvedTile?.let { tile ->
+            ItemSolution(
+                value = (tile.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue).possibleValues.first(),
+                position = tile.position,
+                solveType = SudokuSolveType.TheOnlyUnsolvedTileInArea(
+                    area = this
+                ),
+            )
+        }
+    }
+
     fun findAllItemsWithSinglePossibility(): List<ItemSolution> {
-        return items.flatMap { tile ->
+        return tiles.flatMap { tile ->
             val possibleValues = when (val localTileValue = tile.tileValue) {
                 is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> localTileValue.possibleValues
                 else -> emptySet() // Fixed or Solved tiles don't go into these groups
@@ -54,36 +82,52 @@ internal abstract class SudokuArea {
                 ItemSolution(
                     value,
                     item.position,
-                    this.solveType
+                    SudokuSolveType.TheOnlyOptionInArea(this)
                 )
             }
     }
 
-    fun findReasonPositionForValue(value: Int): List<SudokuPosition> {
-        return items.mapNotNull { item ->
-            when (val localTileValue = item.tileValue) {
-                is SudokuTileValueDataModel.FixedTileValue -> null
-                is SudokuTileValueDataModel.FlexibleTileValue.SolvedTileValue -> null
-                is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> localTileValue.findReasonPositionForValue(value)
+    fun findReasonPositionForValue(found: ItemSolution): Map<SudokuPosition, SudokuSolvedTileType> {
+        return buildMap {
+            tiles.forEach { item ->
+                if (item.position == found.position) {
+                    return@forEach
+                }
+
+                when (val localTileValue = item.tileValue) {
+                    is SudokuTileValueDataModel.FixedTileValue,
+                    is SudokuTileValueDataModel.FlexibleTileValue.SolvedTileValue -> {
+                        put(item.position, SudokuSolvedTileType.SolvedTile)
+                    }
+                    is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> localTileValue.findReasonPositionForValue(found.value)?.let {
+                        put(
+                            item.position,
+                            SudokuSolvedTileType.RuledOutTile(
+                                becauseOfTile = it
+                            )
+                        )
+                    }
+                }
             }
+
+            put(
+                found.position,
+                SudokuSolvedTileType.FilledTile
+            )
         }
     }
+
+    fun toDomainModel() = SudokuAreaDomainModel(
+        positions = this.tiles.map { it.position },
+        priority = this.priority,
+        tag = this.tag
+    )
 }
 
-internal class SudokuRow(
-    override val items: List<SudokuTileValueHolder>
-): SudokuArea() {
-    override val solveType: SudokuSolveType = SudokuSolveType.TheOnlyOptionInRow
-}
-
-internal class SudokuColumn(
-    override val items: List<SudokuTileValueHolder>
-): SudokuArea() {
-    override val solveType: SudokuSolveType = SudokuSolveType.TheOnlyOptionInColumn
-}
-
-internal class SudokuSquare(
-    override val items: List<SudokuTileValueHolder>
-): SudokuArea() {
-    override val solveType: SudokuSolveType = SudokuSolveType.TheOnlyOptionInSquare
-}
+internal fun SudokuAreaDomainModel.toLocalModel(
+    getTileForPosition: (SudokuPosition) -> SudokuTile
+) = SudokuArea(
+    tiles = this.positions.map(getTileForPosition),
+    priority = this.priority,
+    tag = this.tag,
+)

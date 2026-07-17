@@ -5,15 +5,14 @@ import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuResult
-import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
-import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTileReason
+import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-internal class SudokuTileValueHolder(
+internal class SudokuTile(
     val position: SudokuPosition,
     var tileValue: SudokuTileValueDataModel,
 ) {
@@ -39,8 +38,8 @@ internal data class ItemSolution(
 class SudokuRepositoryImpl: SudokuRepository {
     override suspend fun solve(values: List<SudokuTileValueInputModel>, fieldParams: SudokuFieldInputModel): Flow<SudokuResult> = flow {
         val sudokuField = SudokuField(
-            inputModel = fieldParams,
             values = values,
+            areasInputModel = fieldParams.areasInputModel
         )
 
         sudokuField.findFirstInvalidEntry()?.let {
@@ -93,34 +92,34 @@ class SudokuRepositoryImpl: SudokuRepository {
         sudokuField: SudokuField,
         onPartialResultFound: suspend (PartiallySolvedSudokuResult) -> Unit
     ) {
-        val causes = when (found.solveType) {
-            SudokuSolveType.TheOnlyOptionInColumn -> sudokuField.columnAt(
-                position = found.position
-            ).findReasonPositionForValue(found.value)
-
-            SudokuSolveType.TheOnlyOptionInRow -> sudokuField.rowAt(
-                position = found.position
-            ).findReasonPositionForValue(found.value)
-
-            SudokuSolveType.TheOnlyOptionInSquare -> sudokuField.squareAt(
-                position = found.position
-            ).findReasonPositionForValue(found.value)
-
-            SudokuSolveType.TheOnlyOptionInPlace -> {
-                (sudokuField[found.position].tileValue as? SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue)
-                    ?.getAllReasons()
-                    ?: throw IllegalStateException("getAllReasons can be used only at unsolved tile")
+        val reason: SudokuSolvedTurnReason = when (found.solveType) {
+            is SudokuSolveType.TheOnlyOptionInArea -> {
+                SudokuSolvedTurnReason.OnlyOptionInArea(
+                    area = found.solveType.area.toDomainModel(),
+                    positionReasons = found.solveType.area.findReasonPositionForValue(found)
+                )
             }
-        }.distinct()
+
+            is SudokuSolveType.TheOnlyOptionInPlace -> {
+                SudokuSolvedTurnReason.OnlyValueOptionForThisTile(
+                    otherValuesPositions = (sudokuField[found.position].tileValue as? SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue)
+                        ?.getAllReasons()
+                        ?: throw IllegalStateException("getAllReasons can be used only at unsolved tile")
+                )
+            }
+
+            is SudokuSolveType.TheOnlyUnsolvedTileInArea -> {
+                SudokuSolvedTurnReason.OnlyFreeSpaceInArea(
+                    area = found.solveType.area.toDomainModel(),
+                )
+            }
+        }
 
         onPartialResultFound(
             PartiallySolvedSudokuResult(
                 value = found.value,
                 position = found.position,
-                reason = SudokuSolvedTileReason(
-                    solveType = found.solveType,
-                    causes = causes
-                )
+                reason = reason
             )
         )
 
@@ -134,35 +133,19 @@ class SudokuRepositoryImpl: SudokuRepository {
     private fun findSingleOptionInAllAreas(sudokuField: SudokuField): MutableMap<SudokuPosition, ItemSolution> {
         val founds: MutableMap<SudokuPosition, ItemSolution> = mutableMapOf()
 
-        // First check squares
-        sudokuField.squares.forEach { square ->
-            square.findAllItemsWithSinglePossibility()
-                .forEach { itemSolution ->
-                    founds.putIfAbsent(itemSolution.position, itemSolution)
-                }
+        val allAreasSortedByPriority = sudokuField.allAreas.sortedByDescending { it.priority }
+
+        allAreasSortedByPriority.forEach {
+            it.findSingleUnsolvedTileSolution()?.also { itemSolution ->
+                founds.putIfAbsent(itemSolution.position, itemSolution)
+            }
         }
 
-        // Second check rows
-        sudokuField.rows
-            .forEach { row ->
-                row
-                    .findAllItemsWithSinglePossibility()
-                    .forEach { itemSolution ->
-                        // we only add resolves, that are not there, cause those, which are already there have priority
-                        founds.putIfAbsent(itemSolution.position, itemSolution)
-                    }
+        allAreasSortedByPriority.forEach {
+            it.findAllItemsWithSinglePossibility().forEach { itemSolution ->
+                founds.putIfAbsent(itemSolution.position, itemSolution)
             }
-
-        // Third check columns
-        sudokuField.columns
-            .forEach { column ->
-                column
-                    .findAllItemsWithSinglePossibility()
-                    .forEach { itemSolution ->
-                        // we only add resolves, that are not there, cause those, which are already there have priority
-                        founds.putIfAbsent(itemSolution.position, itemSolution)
-                    }
-            }
+        }
 
         // At last check, if tile has single possibility for its value, cause others has been ruled out
         sudokuField.findAllItemsWithSingleAreaPossibility()

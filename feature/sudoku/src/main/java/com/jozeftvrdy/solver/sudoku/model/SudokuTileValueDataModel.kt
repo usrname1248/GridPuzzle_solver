@@ -15,18 +15,22 @@ sealed class SudokuTileValueDataModel {
             private val _possibleValues: MutableSet<Int> = mutableSetOf(1,2,3,4,5,6,7,8,9)
             val possibleValues: Set<Int>
                 get() = _possibleValues
-            private val impossibleValuesMap: MutableMap<Int, SudokuPosition> = mutableMapOf()
-            fun removePossibilityIfMissing(value: Int, becauseOfPosition: SudokuPosition, force: Boolean = false) {
-                val shouldRemove = force || _possibleValues.contains(value)
+            private val impossibleValuesMap: MutableMap<Int, Pair<SudokuAreaPriority, SudokuPosition>> = mutableMapOf()
+            fun removePossibilityIfMissing(value: Int, becauseOfPosition: SudokuPosition, priority: SudokuAreaPriority) {
 
-                if (shouldRemove) {
+                if (_possibleValues.contains(value)) {
                     _possibleValues.remove(value)
-                    impossibleValuesMap[value] = becauseOfPosition
+                }
+
+                if (impossibleValuesMap.contains(value).not() || impossibleValuesMap[value]!!.first < priority) {
+                    impossibleValuesMap[value] = priority to becauseOfPosition
                 }
             }
 
-            fun findReasonPositionForValue(value: Int): SudokuPosition? = impossibleValuesMap[value]
-            fun getAllReasons(): List<SudokuPosition> = impossibleValuesMap.values.toList()
+            fun findReasonPositionForValue(value: Int): SudokuPosition? = impossibleValuesMap[value]?.second
+            fun getAllReasons(): List<SudokuPosition> = impossibleValuesMap.values.map {
+                it.second
+            }.toList()
         }
     }
 }

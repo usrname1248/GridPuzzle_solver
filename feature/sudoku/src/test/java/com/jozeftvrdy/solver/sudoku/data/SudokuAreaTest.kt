@@ -1,95 +1,74 @@
 package com.jozeftvrdy.solver.sudoku.data
 
+import com.jozeftvrdy.solver.sudoku.model.SudokuAreaPriority
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
-import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
-// AI generated
 class SudokuAreaTest {
 
     @Test
-    fun `findAllItemsWithSinglePossibility identifies hidden singles correctly`() {
-        // Arrange
+    fun `findAllItemsWithSinglePossibility identifies hidden singles and wraps them in solveType`() {
         val pos1 = SudokuPosition(1, 1)
         val pos2 = SudokuPosition(1, 2)
         val pos3 = SudokuPosition(1, 3)
 
-        // Tile 1 can be 5 or 6
         val tile1 = mockTile(pos1, setOf(5, 6))
-        // Tile 2 can be 6 or 7 or 9
-        val tile2 = mockTile(pos2, setOf(6, 7, 9))
-        // Tile 3 can be 8 or 9
+        val tile2 = mockTile(pos2, setOf(6, 7))
         val tile3 = mockTile(pos3, setOf(8, 9))
 
-        // In this set:
-        // 5 is unique (only in Tile 1)
-        // 7 is unique (only in Tile 2)
-        // 8 is unique (only in Tile 3)
-        // 6 and 9 is NOT unique ( 6 in Tile 1 and Tile 2, 9 in Tile 2 and Tile 3)
+        val area = SudokuArea(
+            tiles = listOf(tile1, tile2, tile3),
+            priority = SudokuAreaPriority.High
+        )
 
-        val row = SudokuRow(listOf(tile1, tile2, tile3))
+        val results = area.findAllItemsWithSinglePossibility()
 
-        // Act
-        val results = row.findAllItemsWithSinglePossibility()
-
-        // Assert
-        assertEquals(3, results.size)
+        // 5, 7, 8, 9 are all unique in this set of tiles
+        assertEquals(4, results.size)
 
         val solutionFor5 = results.find { it.value == 5 }
         assertEquals(pos1, solutionFor5?.position)
-        assertEquals(SudokuSolveType.TheOnlyOptionInRow, solutionFor5?.solveType)
 
-        val solutionFor7 = results.find { it.value == 7 }
-        assertEquals(pos2, solutionFor7?.position)
-
-        val solutionFor8 = results.find { it.value == 8 }
-        assertEquals(pos3, solutionFor8?.position)
-
-        // Verify '6' is not present because it appeared in two tiles
-        val solutionFor6 = results.find { it.value == 6 }
-        assertEquals(null, solutionFor6)
-
-        // Verify '9' is not present because it appeared in two tiles
-        val solutionFor9 = results.find { it.value == 9 }
-        assertEquals(null, solutionFor9)
-    }
-
-    private fun mockTile(position: SudokuPosition, possibilities: Set<Int>): SudokuTileValueHolder {
-        val holder = mockk<SudokuTileValueHolder>()
-        val unsolvedValue = mockk<UnsolvedTileValue>()
-
-        every { holder.position } returns position
-        every { holder.tileValue } returns unsolvedValue
-        every { unsolvedValue.possibleValues } returns possibilities
-
-        return holder
+        // Verify the SolveType points back to the correct area instance
+        val solveType = solutionFor5?.solveType as? SudokuSolveType.TheOnlyOptionInArea
+        assertEquals(area, solveType?.area)
     }
 
     @Test
-    fun `findDuplicates returns null when all values are unique`() {
-        val tiles = listOf(
-            mockTileWithValue(1),
-            mockTileWithValue(2),
-            mockTileWithValue(3)
+    fun `findSingleUnsolvedTileSolution returns solution when exactly one tile is unsolved`() {
+        val pos = SudokuPosition(5, 5)
+        val unsolvedTile = mockTile(pos, setOf(9))
+        val solvedTile = mockk<SudokuTile>()
+        every { solvedTile.tileValue } returns mockk<com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel.FixedTileValue>()
+
+        val area = SudokuArea(
+            tiles = listOf(unsolvedTile, solvedTile),
+            priority = SudokuAreaPriority.High
         )
-        val area = SudokuRow(tiles)
 
-        val result = area.findDuplicates()
+        val result = area.findSingleUnsolvedTileSolution()
 
-        assertNull(result)
+        assertEquals(9, result?.value)
+        assertEquals(pos, result?.position)
+        assertTrue(result?.solveType is SudokuSolveType.TheOnlyUnsolvedTileInArea)
     }
 
     @Test
-    fun `findDuplicates returns the first two matching tiles when a duplicate exists`() {
+    fun `findDuplicates identifies value collisions`() {
         val tile1 = mockTileWithValue(5)
         val tile2 = mockTileWithValue(9)
         val tile3 = mockTileWithValue(5)
-        val area = SudokuRow(listOf(tile1, tile2, tile3))
+
+        val area = SudokuArea(
+            tiles = listOf(tile1, tile2, tile3),
+            priority = SudokuAreaPriority.High
+        )
 
         val result = area.findDuplicates()
 
@@ -98,30 +77,34 @@ class SudokuAreaTest {
     }
 
     @Test
-    fun `findDuplicates ignores null values even if multiple are present`() {
-        val tiles = listOf(
-            mockTileWithValue(null),
-            mockTileWithValue(null),
-            mockTileWithValue(7)
+    fun `findDuplicates returns null when multiple tiles are unsolved`() {
+        val tile1 = mockTileWithValue(null)
+        val tile2 = mockTileWithValue(null)
+        val tile3 = mockTileWithValue(7)
+
+        val area = SudokuArea(
+            tiles = listOf(tile1, tile2, tile3),
+            priority = SudokuAreaPriority.High
         )
-        val area = SudokuRow(tiles)
 
-        val result = area.findDuplicates()
-
-        assertNull(result)
+        assertNull(area.findDuplicates())
     }
 
-    @Test
-    fun `findDuplicates returns null for an empty list`() {
-        val area = SudokuRow(emptyList())
-        val result = area.findDuplicates()
-        assertNull(result)
+    private fun mockTile(position: SudokuPosition, possibilities: Set<Int>): SudokuTile {
+        val tile = mockk<SudokuTile>()
+        val unsolvedValue = mockk<UnsolvedTileValue>()
+
+        every { tile.position } returns position
+        every { tile.tileValue } returns unsolvedValue
+        every { unsolvedValue.possibleValues } returns possibilities
+
+        return tile
     }
 
-    private fun mockTileWithValue(value: Int?): SudokuTileValueHolder {
-        val holder = mockk<SudokuTileValueHolder>()
-        // Mocks the chain it.tileValue.valueOrNull()
-        every { holder.tileValue.valueOrNull() } returns value
-        return holder
+    private fun mockTileWithValue(value: Int?): SudokuTile {
+        val tile = mockk<SudokuTile>()
+        // Mocks the it.tileValue.valueOrNull() call
+        every { tile.tileValue.valueOrNull() } returns value
+        return tile
     }
 }

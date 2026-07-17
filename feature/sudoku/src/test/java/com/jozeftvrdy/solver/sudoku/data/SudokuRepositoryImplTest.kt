@@ -5,9 +5,11 @@ import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
-import com.jozeftvrdy.solver.sudoku.model.SudokuSolveType
+import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTileType
+import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
+import com.jozeftvrdy.solver.sudoku.model.createStandardAreas
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -80,6 +82,15 @@ class SudokuRepositoryImplTest {
         4, 5, 1,    2, 3, 0,
     )
 
+    val classicSudoku9FieldParams = SudokuFieldInputModel(
+        createStandardAreas(
+            sudokuFieldHeight = 9,
+            sudokuFieldWidth = 9,
+            areaHeight = 3,
+            areaWidth = 3
+        )
+    )
+    
     @Test
     fun `Test that when solve input has duplicates, specific failure result is returned`() = runTest {
 
@@ -95,7 +106,7 @@ class SudokuRepositoryImplTest {
                         it
                     }
                 },
-                SudokuFieldInputModel.classicSudoku9,
+                classicSudoku9FieldParams,
             ).last().also {
                 assertIs<FinalSudokuResult.Failure.InputWithDuplicate>(it)
                 assert(it.value1 == position1 || it.value2 == position1)
@@ -122,9 +133,12 @@ class SudokuRepositoryImplTest {
             } else it
         }.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
+        val result = repo.solve(modifiedSudokuInput, classicSudoku9FieldParams).last()
         assertIs<FinalSudokuResult.Success>(result)
-        assertEquals(completedSudoku, result.successValues.map {
+        val sortedResultsIntoSingleSquare = result.successValues.sortedBy {
+            it.position.x + it.position.y * 10000
+        }
+        assertEquals(completedSudoku, sortedResultsIntoSingleSquare.map {
             it.value
         })
     }
@@ -133,11 +147,15 @@ class SudokuRepositoryImplTest {
     fun `Test that solves function solves valid expert sudoku`() = runTest {
         val modifiedSudokuInput = masterDifficultySudoku.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
+        val result = repo.solve(modifiedSudokuInput, classicSudoku9FieldParams).last()
         assertIs<FinalSudokuResult.Success>(result)
 
+        val sortedResultsIntoSingleSquare = result.successValues.sortedBy {
+            it.position.x + it.position.y * 10000
+        }
+
         // checkUniqueValues in row
-        val rows = result.successValues.map {
+        val rows = sortedResultsIntoSingleSquare.map {
             it.value
         }.chunked(9)
         assert(rows.all {
@@ -145,7 +163,7 @@ class SudokuRepositoryImplTest {
         })
 
         // checkUniqueValues in column
-        val columns = result.successValues
+        val columns = sortedResultsIntoSingleSquare
             .mapIndexed { index, successValue -> (index % 9) to successValue.value  }
             .groupBy { (sudokuColumnIndex, _) -> sudokuColumnIndex }
             .values.map { value ->
@@ -174,7 +192,7 @@ class SudokuRepositoryImplTest {
             7, 7, 7,     8, 8, 8,    9, 9, 9,
             7, 7, 7,     8, 8, 8,    9, 9, 9,
         )
-        val squares = result.successValues
+        val squares = sortedResultsIntoSingleSquare
             .mapIndexed { index, successValue -> squareIndexes[index] to successValue.value  }
             .groupBy { (sudokuSquareIndex, _) -> sudokuSquareIndex }
             .values.map { value ->
@@ -197,13 +215,17 @@ class SudokuRepositoryImplTest {
     fun `Test that all final result contains all input data`() = runTest {
         val modifiedSudokuInput = masterDifficultySudoku.toSudokuTileValueInputModel()
 
-        val result = repo.solve(modifiedSudokuInput, SudokuFieldInputModel.classicSudoku9).last()
+        val result = repo.solve(modifiedSudokuInput, classicSudoku9FieldParams).last()
         assertIs<FinalSudokuResult.Success>(result)
+
+        val sortedResultsIntoSingleSquare = result.successValues.sortedBy {
+            it.position.x + it.position.y * 10000
+        }
 
         // check that result does not changed fixed data
         masterDifficultySudoku.forEachIndexed { index, startSudokuValue ->
             if (startSudokuValue != 0) {
-                assertEquals(startSudokuValue, result.successValues[index].value)
+                assertEquals(startSudokuValue, sortedResultsIntoSingleSquare[index].value)
             }
         }
     }
@@ -216,7 +238,7 @@ class SudokuRepositoryImplTest {
 
         repo.solve(
             masterDifficultySudoku.toSudokuTileValueInputModel(),
-            SudokuFieldInputModel.classicSudoku9,
+            classicSudoku9FieldParams,
         ).collect { result ->
             when (result) {
                 is FinalSudokuResult.Failure.InputWithDuplicate -> assert(false)
@@ -239,7 +261,7 @@ class SudokuRepositoryImplTest {
 
         repo.solve(
             veryEasySudoku.toSudokuTileValueInputModel(),
-            SudokuFieldInputModel.classicSudoku9,
+            classicSudoku9FieldParams,
         ).collect { result ->
             when (result) {
                 is FinalSudokuResult.Failure.InputWithDuplicate -> assert(false)
@@ -258,9 +280,19 @@ class SudokuRepositoryImplTest {
             it.position.x == 1 && it.position.y == 1
         }?.run {
             assert(value == 7)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(4,2))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos <= 3)
+                    assert(yPos <= 3)
+                }
+            }
+            reason.positionReasons[SudokuPosition(1,2)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(4,2), this.becauseOfTile)
+            }?:assert(false)
+
         }?:assert(false)
 
         // x = 6, y = 1
@@ -268,9 +300,18 @@ class SudokuRepositoryImplTest {
             it.position.x == 6 && it.position.y == 1
         }?.run {
             assert(value == 5)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(4,4))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos in 4..6)
+                    assert(yPos <= 3)
+                }
+            }
+            reason.positionReasons[SudokuPosition(4,3)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(4,4), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
         // x = 1, y = 2
@@ -278,9 +319,17 @@ class SudokuRepositoryImplTest {
             it.position.x == 1 && it.position.y == 2
         }?.run {
             assert(value == 5)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInRow)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(3,6))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (_, yPos) ->
+                    assertEquals(2, yPos)
+                }
+            }
+            reason.positionReasons[SudokuPosition(3,2)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(3,6), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
 
@@ -289,8 +338,8 @@ class SudokuRepositoryImplTest {
             it.position.x == 3 && it.position.y == 2
         }?.run {
             assert(value == 9)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInPlace)
-            assert(reason.causes.size == 8)
+            assertIs<SudokuSolvedTurnReason.OnlyValueOptionForThisTile>(reason)
+            assertEquals(8,reason.otherValuesPositions.size)
         }?:assert(false)
 
         // x = 8, y = 3
@@ -298,9 +347,18 @@ class SudokuRepositoryImplTest {
             it.position.x == 8 && it.position.y == 3
         }?.run {
             assert(value == 5)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(7,5))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos in 7..9)
+                    assert(yPos <= 3)
+                }
+            }
+            reason.positionReasons[SudokuPosition(7,3)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(7,5), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
         // x = 8, y = 4
@@ -308,9 +366,18 @@ class SudokuRepositoryImplTest {
             it.position.x == 8 && it.position.y == 4
         }?.run {
             assert(value == 7)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(6,6))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos in 7..9)
+                    assert(yPos in 4..6)
+                }
+            }
+            reason.positionReasons[SudokuPosition(8,6)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(6,6), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
         // x = 8, y = 6
@@ -318,9 +385,17 @@ class SudokuRepositoryImplTest {
             it.position.x == 8 && it.position.y == 6
         }?.run {
             assert(value == 6)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInRow)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(6,5))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (_, yPos) ->
+                    assertEquals(6, yPos)
+                }
+            }
+            reason.positionReasons[SudokuPosition(5,6)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(6,5), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
         // x = 4, y = 6
@@ -328,9 +403,18 @@ class SudokuRepositoryImplTest {
             it.position.x == 4 && it.position.y == 6
         }?.run {
             assert(value == 2)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(5,3))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos in 4..6)
+                    assert(yPos in 4..6)
+                }
+            }
+            reason.positionReasons[SudokuPosition(5,6)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(5,3), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
 
         // x = 5, y = 8
@@ -338,9 +422,18 @@ class SudokuRepositoryImplTest {
             it.position.x == 5 && it.position.y == 8
         }?.run {
             assert(value == 3)
-            assert(reason.solveType == SudokuSolveType.TheOnlyOptionInSquare)
-            assert(reason.causes.size == 1)
-            assert(reason.causes.first() == SudokuPosition(6,4))
+            assertIs<SudokuSolvedTurnReason.OnlyOptionInArea>(reason)
+            reason.area.run {
+                assertEquals(9,this.positions.toSet().size)
+                positions.forEach { (xPos, yPos) ->
+                    assert(xPos in 4..6)
+                    assert(yPos in 7..9)
+                }
+            }
+            reason.positionReasons[SudokuPosition(6,8)]?.run {
+                assertIs<SudokuSolvedTileType.RuledOutTile>(this)
+                assertEquals(SudokuPosition(6,4), this.becauseOfTile)
+            }?:assert(false)
         }?:assert(false)
     }
 
@@ -372,9 +465,12 @@ class SudokuRepositoryImplTest {
         repo.solve(
             values = sudoku6Size.toSudokuTileValueInputModel(maxValue = 6),
             fieldParams = SudokuFieldInputModel(
-                sudokuFieldSize = 6,
-                areaWidth = 3,
-                areaHeight = 2,
+                createStandardAreas(
+                    sudokuFieldWidth = 6,
+                    sudokuFieldHeight = 6,
+                    areaWidth = 3,
+                    areaHeight = 2,
+                )
             )
         ).collect {
             when (it) {
@@ -385,7 +481,7 @@ class SudokuRepositoryImplTest {
                 }
                 is PartiallySolvedSudokuResult -> {
                     println(
-                        "at [x = ${it.position.x}, y = ${it.position.y}, is value ${it.value}, because ${it.reason.solveType}"
+                        "at [x = ${it.position.x}, y = ${it.position.y}, is value ${it.value}, because ${it.reason}"
                     )
                     resultField[it.position.x-1][it.position.y-1] = it.value
                 }
