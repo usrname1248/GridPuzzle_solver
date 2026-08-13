@@ -11,9 +11,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-internal class SudokuField(
-    values: List<SudokuTileValueInputModel>,
-    areasInputModel: SudokuAreasInputModel,
+internal data class SudokuField(
+    val valuesInputModel: List<SudokuTileValueInputModel>,
+    val areasInputModel: SudokuAreasInputModel,
 ) {
 
     val valueByPositionMap: Map<SudokuPosition, SudokuTile> = areasInputModel.areas.flatMap {
@@ -21,7 +21,9 @@ internal class SudokuField(
     }.distinct().associateWith {
         SudokuTile(
             position = it,
-            tileValue = SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue()
+            tileValue = SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue(
+                areasInputModel.areas.first().positions.size
+            )
         )
     }
 
@@ -70,7 +72,7 @@ internal class SudokuField(
     }
 
     init {
-        values.forEach { inputModel ->
+        valuesInputModel.forEach { inputModel ->
             setNumberToPosition(
                 value = inputModel.value,
                 position = inputModel.position,
@@ -136,6 +138,35 @@ internal class SudokuField(
         }
     }
 
+   fun hasDeadEnd(): Boolean = allValues.any {
+        it.tileValue is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue &&
+                (it.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue).possibleValues.isEmpty()
+    } || allAreas.any { area ->
+        area.tiles.mapNotNull {
+            if (it.tileValue is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue)
+                it.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue
+            else null
+        }.let { unsolvedTiles ->
+            // we must have same number of empty tiles and same number of possible items to put them to.
+            // if we have more possibilities to lower count of empty tiles
+            // or less possibilities to higher count of empty tiles,
+            // Then this cannot be solved
+            val sameSize = unsolvedTiles.size == unsolvedTiles.flatMap {
+                it.possibleValues
+            }.distinct().size
+
+            // Pigeonhole Principle
+            // if we have x numbers of tiles with same y possibilities,
+            // we cannot have less those tiles than number of possibilities that must fit into them
+            val hasSamePossibilitiesForFewTiles = unsolvedTiles.groupBy {
+                it.possibleValues
+            }.any { it.key.size < it.value.size }
+
+
+            sameSize.not() || hasSamePossibilitiesForFewTiles
+        }
+   }
+
     fun findAllItemsWithSingleAreaPossibility(): List<ItemSolution> {
         return allValues.mapNotNull { tile ->
             when (val localTileValue = tile.tileValue) {
@@ -156,5 +187,52 @@ internal class SudokuField(
                 else -> null
             }
         }
+    }
+
+    fun createNewFieldWithGuessedValue(
+        guessedValue: Int,
+        guessedLocation: SudokuPosition,
+    ): SudokuField {
+        val currentValues = allValues.mapNotNull {
+            when (val localTileValue = it.tileValue) {
+                is SudokuTileValueDataModel.FixedTileValue -> {
+                    SudokuTileValueInputModel(
+                        value = localTileValue.value,
+                        position = it.position,
+                        tileType = SudokuInputTileType.FixedValue
+                    )
+                }
+                is SudokuTileValueDataModel.FlexibleTileValue.SolvedTileValue -> {
+                    SudokuTileValueInputModel(
+                        value = localTileValue.value,
+                        position = it.position,
+                        tileType = SudokuInputTileType.SolvedValue
+                    )
+                }
+                is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> null
+            }
+        }
+        val nextValues = currentValues + SudokuTileValueInputModel(
+            value = guessedValue,
+            position = guessedLocation,
+            tileType = SudokuInputTileType.SolvedValue
+        )
+        return SudokuField(
+            valuesInputModel = nextValues,
+            areasInputModel = this.areasInputModel
+        )
+    }
+    fun getFirstUnsolvedValue(alreadyGuessedValues: List<Pair<SudokuPosition, Int>>): Pair<SudokuPosition, Int>? {
+        this.allValues.forEach { value ->
+            if (value.tileValue is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue) {
+                (value.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue).possibleValues.forEach { possibleValue ->
+                    val pair = value.position to possibleValue
+                    if (alreadyGuessedValues.contains(pair).not())
+                        return pair
+                }
+            }
+        }
+
+        return null
     }
 }

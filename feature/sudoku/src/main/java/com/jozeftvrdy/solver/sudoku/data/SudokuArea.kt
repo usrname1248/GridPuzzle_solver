@@ -55,7 +55,13 @@ internal data class SudokuArea(
 
         return theOnlyUnsolvedTile?.let { tile ->
             ItemSolution(
-                value = (tile.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue).possibleValues.first(),
+                value = (tile.tileValue as SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue).possibleValues.let {
+                    if (it.isEmpty()) {
+                        return null
+                    } else {
+                        it.first()
+                    }
+                },
                 position = tile.position,
                 solveType = SudokuSolveType.TheOnlyUnsolvedTileInArea(
                     area = this

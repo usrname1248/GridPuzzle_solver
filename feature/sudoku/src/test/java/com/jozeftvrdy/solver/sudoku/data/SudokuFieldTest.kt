@@ -34,7 +34,7 @@ class SudokuFieldTest {
     @Test
     fun `Test that all items count are 192, and are ordered correctly`() = runTest {
         val sudokuField = SudokuField(
-            values = emptyList(),
+            valuesInputModel = emptyList(),
             areasInputModel = createStandardAreas(
                 sudokuFieldWidth = 16,
                 sudokuFieldHeight = 12,
@@ -127,7 +127,7 @@ class SudokuFieldTest {
     }
 
     private fun createSudokuField() = SudokuField(
-        values = emptyList(),
+        valuesInputModel = emptyList(),
         areasInputModel = createStandardAreas(
             sudokuFieldWidth = 9,
             sudokuFieldHeight = 9,

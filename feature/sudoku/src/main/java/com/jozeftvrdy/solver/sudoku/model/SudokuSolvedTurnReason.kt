@@ -13,4 +13,6 @@ sealed class SudokuSolvedTurnReason() {
     data class OnlyValueOptionForThisTile(
         val otherValuesPositions: List<SudokuPosition>
     ): SudokuSolvedTurnReason()
+
+    data object GuessedValue: SudokuSolvedTurnReason()
 }

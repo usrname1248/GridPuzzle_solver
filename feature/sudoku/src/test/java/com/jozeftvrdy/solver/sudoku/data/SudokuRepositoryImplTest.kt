@@ -11,6 +11,7 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import com.jozeftvrdy.solver.sudoku.model.createStandardAreas
 import kotlinx.coroutines.flow.last
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -42,6 +43,18 @@ class SudokuRepositoryImplTest {
         7, 0, 6, 2, 3, 5, 9, 1, 4,
         1, 5, 4, 7, 9, 6, 0, 2, 3,
         2, 3, 9, 0, 4, 1, 5, 6, 7
+    )
+
+    val twoOptionSudoku = listOf(
+        2, 3, 9, 1, 5, 8, 7, 6, 4,
+        7, 5, 4, 9, 3, 6, 1, 2, 8,
+        1, 6, 8, 4, 7, 2, 9, 5, 3,
+        0, 7, 3, 6, 0, 4, 5, 1, 2,
+        5, 4, 1, 7, 2, 3, 6, 8, 9,
+        0, 2, 6, 5, 0, 1, 4, 3, 7,
+        4, 9, 2, 3, 6, 5, 8, 7, 1,
+        3, 1, 5, 8, 4, 7, 2, 9, 6,
+        6, 8, 7, 2, 1, 9, 3, 4, 5
     )
 
     val veryEasySudoku = listOf (
@@ -509,6 +522,31 @@ class SudokuRepositoryImplTest {
         }
 
         println(resultField)
+    }
+
+    @Test
+    fun `Test that solve function solves sudoku with 2 solutions`() = runTest {
+        val results = repo.solve(twoOptionSudoku.toSudokuTileValueInputModel(), classicSudoku9FieldParams).toList()
+
+        val finalResult = results.last()
+        assertIs<FinalSudokuResult.Success>(finalResult)
+    }
+
+    @Test
+    fun `Test that solve function solves sudoku with lots of solutions`() = runTest {
+        val sudoku = (1..9).toList() + List(9*8) {
+            0
+        }
+        val results = repo.solve(sudoku.toSudokuTileValueInputModel(), classicSudoku9FieldParams).toList()
+
+        assertEquals(8*9 + 1, results.size)
+        val partialResults = results.filterIsInstance<PartiallySolvedSudokuResult>()
+        assertEquals(8*9, partialResults.size)
+        assertEquals(8*9, partialResults.map { it.position }.distinct().size)
+        assert(partialResults.first().reason is SudokuSolvedTurnReason.GuessedValue)
+
+        val finalResult = results.last()
+        assertIs<FinalSudokuResult.Success>(finalResult)
     }
 
     private fun List<Int>.toSudokuTileValueInputModel(maxValue: Int = 9): List<SudokuTileValueInputModel> = this.mapIndexedNotNull { index, value ->

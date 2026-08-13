@@ -10,9 +10,9 @@ sealed class SudokuTileValueDataModel {
         data class SolvedTileValue(val value: Int) : FlexibleTileValue() {
             override fun valueOrNull() = value
         }
-        class UnsolvedTileValue() : FlexibleTileValue() {
+        class UnsolvedTileValue(maxValue: Int) : FlexibleTileValue() {
             override fun valueOrNull() = null
-            private val _possibleValues: MutableSet<Int> = mutableSetOf(1,2,3,4,5,6,7,8,9)
+            private val _possibleValues: MutableSet<Int> = (1..maxValue).toMutableSet()
             val possibleValues: Set<Int>
                 get() = _possibleValues
             private val impossibleValuesMap: MutableMap<Int, Pair<SudokuAreaPriority, SudokuPosition>> = mutableMapOf()

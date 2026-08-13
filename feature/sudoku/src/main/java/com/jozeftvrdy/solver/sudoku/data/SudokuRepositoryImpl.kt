@@ -16,16 +16,21 @@ internal class SudokuTile(
     val position: SudokuPosition,
     var tileValue: SudokuTileValueDataModel,
 ) {
-    fun toFullSolvedModel(): SudokuTileValueFullSolvedModel = when (val localTileValue = tileValue) {
+    fun toFullSolvedModel(): SudokuTileValueFullSolvedModel =
+        when (val localTileValue = tileValue) {
             is SudokuTileValueDataModel.FixedTileValue -> SudokuTileValueFullSolvedModel.FixedTileValue(
                 value = localTileValue.value,
                 position = position
             )
+
             is SudokuTileValueDataModel.FlexibleTileValue.SolvedTileValue -> SudokuTileValueFullSolvedModel.SolvedTileValue(
                 value = localTileValue.value,
                 position = position,
             )
-            is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> throw IllegalStateException("Cannot map to FullSolvedModel because tile at position $position is unsolved.")
+
+            is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> throw IllegalStateException(
+                "Cannot map to FullSolvedModel because tile at position $position is unsolved."
+            )
         }
 }
 
@@ -35,18 +40,23 @@ internal data class ItemSolution(
     val solveType: SudokuSolveType
 )
 
-class SudokuRepositoryImpl: SudokuRepository {
-    override suspend fun solve(values: List<SudokuTileValueInputModel>, fieldParams: SudokuFieldInputModel): Flow<SudokuResult> = flow {
+class SudokuRepositoryImpl : SudokuRepository {
+    override suspend fun solve(
+        values: List<SudokuTileValueInputModel>,
+        fieldParams: SudokuFieldInputModel
+    ): Flow<SudokuResult> = flow {
         val sudokuField = SudokuField(
-            values = values,
+            valuesInputModel = values,
             areasInputModel = fieldParams.areasInputModel
         )
 
         sudokuField.findFirstInvalidEntry()?.let {
-            emit( FinalSudokuResult.Failure.InputWithDuplicate(
-                it.first.position,
-                it.second.position
-            ))
+            emit(
+                FinalSudokuResult.Failure.InputWithDuplicate(
+                    it.first.position,
+                    it.second.position
+                )
+            )
             return@flow
         }
 
@@ -60,9 +70,11 @@ class SudokuRepositoryImpl: SudokuRepository {
             return@flow
         }
 
-        emit(FinalSudokuResult.Success(
-            successValues = sudokuField.toFullSolvedModel()
-        ))
+        emit(
+            FinalSudokuResult.Success(
+                successValues = sudokuField.toFullSolvedModel()
+            )
+        )
     }
 
     private suspend fun solveInternal(
@@ -75,14 +87,65 @@ class SudokuRepositoryImpl: SudokuRepository {
                 return null
             }
 
-            val founds: MutableMap<SudokuPosition, ItemSolution> = findSingleOptionInAllAreas(sudokuField)
-
-            if (founds.isEmpty()) {
+            if (sudokuField.hasDeadEnd()) {
                 return FinalSudokuResult.Failure.NoSolutionFound
             }
 
-            founds.values.forEach { found ->
-                onSolutionForTileFound(found, sudokuField, onPartialResultFound)
+            val founds: MutableMap<SudokuPosition, ItemSolution> =
+                findSingleOptionInAllAreas(sudokuField)
+
+            if (founds.isEmpty()) {
+                // make a guess
+                return startGuessing(
+                    sudokuField,
+                    onPartialResultFound
+                )
+            } else {
+                founds.values.forEach { found ->
+                    onSolutionForTileFound(found, sudokuField, onPartialResultFound)
+                }
+            }
+        }
+    }
+
+    private suspend fun startGuessing(
+        sudokuField: SudokuField,
+        onPartialResultFound: suspend (PartiallySolvedSudokuResult) -> Unit,
+    ): FinalSudokuResult.Failure? {
+        val alreadyGuessedValues = mutableListOf<Pair<SudokuPosition, Int>>()
+
+        while (true) {
+            val partialResults = mutableListOf<PartiallySolvedSudokuResult>()
+            val newGuess = sudokuField.getFirstUnsolvedValue(alreadyGuessedValues)
+                ?: return FinalSudokuResult.Failure.NoSolutionFound
+            alreadyGuessedValues.add(newGuess)
+            val finalResult = this.solveInternal(
+                sudokuField = sudokuField.createNewFieldWithGuessedValue(
+                    newGuess.second,
+                    newGuess.first
+                ),
+                onPartialResultFound = {
+                    partialResults.add(it)
+                }
+            )
+
+            if (finalResult == null) {
+                partialResults.add(0, PartiallySolvedSudokuResult(
+                    value = newGuess.second,
+                    position = newGuess.first,
+                    reason = SudokuSolvedTurnReason.GuessedValue
+                ))
+
+                partialResults.forEach {
+                    onPartialResultFound(it)
+                    sudokuField.setNumberToPosition(
+                        value = it.value,
+                        position = it.position,
+                        isFixed = false,
+                    )
+                }
+
+                return null
             }
         }
     }
@@ -153,6 +216,53 @@ class SudokuRepositoryImpl: SudokuRepository {
                 // we only add resolves, that are not there, cause those, which are already there have priority
                 founds.putIfAbsent(itemSolution.position, itemSolution)
             }
+
+        val foundsPositions = founds.map {
+            it.value
+        }.groupBy {
+            it.value
+        }.mapValues { mappedValue ->
+            mappedValue.value.map {
+                it.position
+            }
+        }.values
+
+        foundsPositions.forEach { allPositionsForDigit ->
+            val areasAlreadyClaimedByThisDigit = mutableSetOf<SudokuArea>()
+
+            allPositionsForDigit.forEach { pos ->
+                val areasForThisPos = sudokuField.areasByPosition[pos] ?: emptyList()
+
+                // Check if any area of this tile was already claimed by another tile in this batch
+                val conflict = areasForThisPos.any { it in areasAlreadyClaimedByThisDigit }
+
+                if (conflict) {
+                    founds.remove(pos)
+                } else {
+                    areasAlreadyClaimedByThisDigit.addAll(areasForThisPos)
+                }
+            }
+        }
+
+//        foundsPositions.forEach { allFoundsPositionForSpecificNumber ->
+//            val allAreasToInsertThisNumber =
+//                allFoundsPositionForSpecificNumber.associateWith { position ->
+//                    sudokuField.areasByPosition[position]!!
+//                }
+//
+//            val invalidFounds = allAreasToInsertThisNumber.filter {
+//                it.value >= 1
+//            }.keys
+//
+//            if (invalidFounds.size == founds.size) {
+//                return null
+//            } else {
+//                invalidFounds.forEach {
+//                    founds.remove(it)
+//                }
+//            }
+//        }
+
         return founds
     }
 }
