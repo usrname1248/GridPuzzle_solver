@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="fixed_sudoku_values_subtitle">Predefined / fixed values:</string>
+    <string name="already_solved_sudoku_values_subtitle">Already solved values:</string>
+    <string name="content_description_back_button">back button</string>
+    <string name="content_description_exit_edit">exit edit mode</string>
+    <string name="content_description_enter_edit">enter edit mode</string>
+    <string name="sudoku_solve_one_step_btn">Solve next step</string>
+    <string name="sudoku_solve_all_steps_btn">Solve Sudoku</string>
+    <string name="iteration_button_first_description">jump to first solution step</string>
+    <string name="iteration_button_previous_description">show previous solution step</string>
+    <string name="iteration_button_next_description">show next solution step</string>
+    <string name="iteration_button_last_description">jump to last solution step</string>
+    <string name="iteration_button_reason_description">show why this solution</string>
+    <string name="sudoku_dialog_title">Error occurred</string>
+    <string name="sudoku_dialog_text_input_with_errors">Sudoku input contains errors.</string>
+    <string name="sudoku_dialog_text_guessed_value">Sudoku contains no logical steps left. This value was guessed.</string>
+    <string name="sudoku_dialog_text_no_solution">This sudoku has no solution.</string>
+    <string name="sudoku_dialog_confirm_button">OK</string>
+</resources>

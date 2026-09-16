@@ -107,7 +107,7 @@ internal data class SudokuArea(
                     }
                     is SudokuTileValueDataModel.FlexibleTileValue.UnsolvedTileValue -> localTileValue.findReasonPositionForValue(found.value)?.let {
                         put(
-                            item.position,
+                            it,
                             SudokuSolvedTileType.RuledOutTile(
                                 becauseOfTile = it
                             )

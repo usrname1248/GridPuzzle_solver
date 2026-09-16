@@ -1,8 +1,8 @@
 package com.jozeftvrdy.solver.sudoku.presentation.component
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -32,38 +33,45 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun SudokuPositionComponent(
     position: SudokuPosition,
     size: Dp,
-    provideContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel?,
-    provideBorderSides: (position: SudokuPosition) -> ImmutableList<BorderSide>,
+    provideBorderSides: (position: SudokuPosition) -> List<BorderSide>,
     modifier: Modifier = Modifier,
     provideBackgroundColor: @Composable (position: SudokuPosition) -> Color = {
         SudokuTheme.colors.tileBackground
     },
+    provideItemContent: @Composable SudokuItemContentScope.(position: SudokuPosition) -> Unit,
 ) {
     Box(
         modifier = modifier.size(size),
     ) {
+        val borderSides = provideBorderSides(position)
+        val savedBorderSides = remember(borderSides) {
+            borderSides.toImmutableList()
+        }
+
         SudokuPositionComponentBackground(
             size = size,
-            borderSides = provideBorderSides(position),
+            borderSides = savedBorderSides,
             provideBackgroundColor = remember(position) {
                 {
                     provideBackgroundColor(position)
                 }
             }
         ) {
-            provideContentData(position)?.let { valueData ->
-                SudokuPositionComponentContent(
-                    valueData = valueData,
-                    size = size,
-                )
-            }
+            provideItemContent(position)
         }
-
     }
 }
 
 private fun ImmutableList<BorderSide>.shouldDrawBoldLine(onSide: BorderSide) : Boolean =
     this.contains(onSide)
+
+interface SudokuItemContentScope {
+    val size: Dp
+}
+
+class SudokuItemContentScopeImpl (
+    override val size: Dp
+): SudokuItemContentScope
 
 @Composable
 internal fun SudokuPositionComponentBackground(
@@ -73,13 +81,13 @@ internal fun SudokuPositionComponentBackground(
     provideBackgroundColor: @Composable () -> Color = {
         SudokuTheme.colors.tileBackground
     },
-    content: @Composable BoxScope.() -> Unit = {}
+    content: @Composable SudokuItemContentScope.() -> Unit = {}
 ) {
     val normalLineWidth = size.getNormalLineWidth()
     val boldLineWidth = size.getBoldLineWidth()
 
     val borderColor = LocalSudokuColors.current.sudokuBorder
-    val backgroundColor = provideBackgroundColor()
+    val backgroundColor = animateColorAsState(provideBackgroundColor())
 
     val prePostBorderValue = (boldLineWidth - normalLineWidth).div(2)
     val preBorderPadding = PaddingValues(
@@ -99,35 +107,44 @@ internal fun SudokuPositionComponentBackground(
         modifier = modifier
             .fillMaxSize()
             .padding(preBorderPadding)
-            .background(color = borderColor)
+            .drawBehind {
+                drawRect(
+                    color = borderColor
+                )
+            }
             .padding(postBorderPadding)
-            .background(
-                color = backgroundColor
-            ),
-        content = content
-    )
+            .drawBehind{
+                drawRect(
+                    color = backgroundColor.value
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        content(
+            SudokuItemContentScopeImpl(size)
+        )
+    }
 }
 
 @Composable
-internal fun BoxScope.SudokuPositionComponentContent(
+fun SudokuItemContentScope.SudokuPositionComponentContent(
     valueData: SudokuPositionValuePresentationModel,
-    size: Dp,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
 
     Text(
         valueData.value.toString(10),
-        modifier = modifier.align(alignment = Alignment.Center),
+        modifier = modifier,
         fontSize = with(density) {
-            size.toSp() * 0.5f
+            this@SudokuPositionComponentContent.size.toSp() * 0.5f
         },
         fontWeight = when (valueData.inputTileType) {
             SudokuInputTileType.FixedValue -> FontWeight.Bold
             SudokuInputTileType.SolvedValue -> FontWeight.Normal
         },
         textAlign = TextAlign.Center,
-        color = if (valueData.isErrorValue) SudokuTheme.colors.textValueErrorColor else SudokuTheme.colors.textValueColor,
+        color = SudokuTheme.colors.textValueColor,
     )
 }
 
@@ -142,13 +159,13 @@ fun SudokuPositionEmptyComponentPreview() {
             SudokuPositionComponent(
                 size = 40.dp,
                 position = SudokuPosition(1, 1),
-                provideContentData = { null },
+                provideItemContent = { },
                 provideBorderSides = { persistentListOf() },
             )
 
             SudokuPositionComponent(
                 position = SudokuPosition(1, 2),
-                provideContentData = { null },
+                provideItemContent = { },
                 provideBorderSides = { BorderSide.entries.toImmutableList() },
                 size = 40.dp,
             )
@@ -169,10 +186,12 @@ fun SudokuPositionComponentPreviewWithFixedValue() {
             SudokuPositionComponent(
                 position = SudokuPosition(1, 1),
                 provideBorderSides = { persistentListOf() },
-                provideContentData = {
-                    SudokuPositionValuePresentationModel(
-                        value = 4,
-                        inputTileType = SudokuInputTileType.FixedValue,
+                provideItemContent = {
+                    SudokuPositionComponentContent(
+                        SudokuPositionValuePresentationModel(
+                            value = 4,
+                            inputTileType = SudokuInputTileType.FixedValue,
+                        )
                     )
                 },
                 size = 40.dp,
@@ -180,10 +199,12 @@ fun SudokuPositionComponentPreviewWithFixedValue() {
 
             SudokuPositionComponent(
                 position = SudokuPosition(1, 2),
-                provideContentData = {
-                    SudokuPositionValuePresentationModel(
-                        value = 4,
-                        inputTileType = SudokuInputTileType.FixedValue,
+                provideItemContent = {
+                    SudokuPositionComponentContent(
+                        SudokuPositionValuePresentationModel(
+                            value = 4,
+                            inputTileType = SudokuInputTileType.FixedValue,
+                        )
                     )
                 },
                 provideBorderSides = { BorderSide.entries.toImmutableList() },
@@ -203,10 +224,12 @@ fun SudokuPositionComponentPreviewWithSolvedValue() {
         ) {
             SudokuPositionComponent(
                 position = SudokuPosition(1, 1),
-                provideContentData = {
-                    SudokuPositionValuePresentationModel(
-                        value = 4,
-                        inputTileType = SudokuInputTileType.SolvedValue,
+                provideItemContent = {
+                    SudokuPositionComponentContent(
+                        SudokuPositionValuePresentationModel(
+                            value = 4,
+                            inputTileType = SudokuInputTileType.SolvedValue,
+                        )
                     )
                 },
                 provideBorderSides = { persistentListOf() },
@@ -215,10 +238,12 @@ fun SudokuPositionComponentPreviewWithSolvedValue() {
 
             SudokuPositionComponent(
                 position = SudokuPosition(1, 2),
-                provideContentData = {
-                    SudokuPositionValuePresentationModel(
-                        value = 4,
-                        inputTileType = SudokuInputTileType.FixedValue,
+                provideItemContent = {
+                    SudokuPositionComponentContent(
+                        SudokuPositionValuePresentationModel(
+                            value = 4,
+                            inputTileType = SudokuInputTileType.FixedValue,
+                        )
                     )
                 },
                 provideBorderSides = { BorderSide.entries.toImmutableList() },

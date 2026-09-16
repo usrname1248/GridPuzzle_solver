@@ -1,9 +1,7 @@
 package com.jozeftvrdy.solver.gridpuzzle.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,10 +11,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.jozeftvrdy.solver.gridpuzzle.ui.theme.MainScreen
+import com.jozeftvrdy.solver.sudoku.presentation.screen.SudokuMainScreen
 
 @Composable
 fun MainNavHost(
-    scaffoldPadding: PaddingValues,
     navController: NavHostController = rememberNavController()
 ) {
     val startDestination = MainScreenDestination
@@ -34,17 +32,12 @@ fun MainNavHost(
         }
 
         composable<MainScreenItem.Sudoku> {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(scaffoldPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Sudoku")
-            }
+            SudokuMainScreen()
         }
 
         composable<MainScreenItem.Other> {
             Box(
-                modifier = Modifier.fillMaxSize().padding(scaffoldPadding),
+                modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 Text("Other")

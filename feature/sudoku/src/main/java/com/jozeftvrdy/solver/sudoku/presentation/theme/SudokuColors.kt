@@ -11,7 +11,7 @@ data class SudokuColors(
     val tileBackground: Color,
     val specialTileBackground: Color,
     val textValueColor: Color,
-    val textValueErrorColor: Color,
+    val tileErrorBackground: Color,
     val areaErrorBackground: Color,
     val markedAsReasonTileBackground: Color,
     val markedAsAreaTileBackground: Color,
@@ -28,11 +28,11 @@ val LightSudokuColors = SudokuColors(
     tileBackground = Color.White,
     specialTileBackground = Color(0xFFE3F2FD),
     textValueColor = Color(0xFF212121),
-    textValueErrorColor = Color(0xFFB71C1C),
+    tileErrorBackground = Color(0xFFFC6969),
     areaErrorBackground = Color(0xFFFFEBEE),
-    markedAsReasonTileBackground = Color(0xFFFFF9C4),
-    markedAsAreaTileBackground = Color(0xFFE8F5E9),
-    markedAsAddedTileBackground = Color(0xFFA5D6A7),
+    markedAsAreaTileBackground = Color(0xFFFFF9C4),
+    markedAsReasonTileBackground = Color(0xFFC5EEC8),
+    markedAsAddedTileBackground = Color(0xFF94CE96),
 )
 
 val DarkSudokuColors = SudokuColors(
@@ -41,9 +41,9 @@ val DarkSudokuColors = SudokuColors(
     tileBackground = Color(0xFF1E1E1E),
     specialTileBackground = Color(0xFF0D47A1).copy(alpha = 0.2f),
     textValueColor = Color(0xFFE0E0E0),
-    textValueErrorColor = Color(0xFFEF9A9A),
+    tileErrorBackground = Color(0xFFB01919),
     areaErrorBackground = Color(0xFF330E0E),
-    markedAsReasonTileBackground = Color(0xFF333016),
-    markedAsAreaTileBackground = Color(0xFF1B5E20),
+    markedAsReasonTileBackground = Color(0xFF304127),
+    markedAsAreaTileBackground = Color(0xFF383623),
     markedAsAddedTileBackground = Color(0xFF2E7D32),
 )

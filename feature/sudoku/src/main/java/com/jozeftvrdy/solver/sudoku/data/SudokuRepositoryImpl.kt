@@ -9,8 +9,10 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 
 internal class SudokuTile(
     val position: SudokuPosition,
@@ -41,40 +43,43 @@ internal data class ItemSolution(
 )
 
 class SudokuRepositoryImpl : SudokuRepository {
+    // TODO: inject dispatchers
     override suspend fun solve(
         values: List<SudokuTileValueInputModel>,
         fieldParams: SudokuFieldInputModel
-    ): Flow<SudokuResult> = flow {
-        val sudokuField = SudokuField(
-            valuesInputModel = values,
-            areasInputModel = fieldParams.areasInputModel
-        )
+    ): Flow<SudokuResult> = withContext(Dispatchers.Default) {
+        flow {
+            val sudokuField = SudokuField(
+                valuesInputModel = values,
+                areasInputModel = fieldParams.areasInputModel
+            )
 
-        sudokuField.findFirstInvalidEntry()?.let {
+            sudokuField.findFirstInvalidEntry()?.let {
+                emit(
+                    FinalSudokuResult.Failure.InputWithDuplicate(
+                        it.first.position,
+                        it.second.position
+                    )
+                )
+                return@flow
+            }
+
+            solveInternal(
+                sudokuField = sudokuField,
+                onPartialResultFound = {
+                    emit(it)
+                }
+            )?.let {
+                emit(it)
+                return@flow
+            }
+
             emit(
-                FinalSudokuResult.Failure.InputWithDuplicate(
-                    it.first.position,
-                    it.second.position
+                FinalSudokuResult.Success(
+                    successValues = sudokuField.toFullSolvedModel()
                 )
             )
-            return@flow
         }
-
-        solveInternal(
-            sudokuField = sudokuField,
-            onPartialResultFound = {
-                emit(it)
-            }
-        )?.let {
-            emit(it)
-            return@flow
-        }
-
-        emit(
-            FinalSudokuResult.Success(
-                successValues = sudokuField.toFullSolvedModel()
-            )
-        )
     }
 
     private suspend fun solveInternal(

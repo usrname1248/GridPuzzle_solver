@@ -3,11 +3,12 @@ package com.jozeftvrdy.solver.sudoku.presentation.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.layout
@@ -23,11 +24,11 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlin.math.roundToInt
 
 @Composable
-private fun SudokuField(
+fun SudokuField(
     positions: ImmutableList<SudokuPosition>,
-    provideContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel?,
-    provideBorderSide: (position: SudokuPosition) -> ImmutableList<BorderSide>,
+    provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     provideBackgroundColor: @Composable (position: SudokuPosition) -> Color,
+    provideItemContent: @Composable SudokuItemContentScope.(position: SudokuPosition) -> Unit,
 ) {
     val maxItemsCount = positions.maxOf { it.x }
 
@@ -44,7 +45,7 @@ private fun SudokuField(
 
     BoxWithConstraints(
         modifier = Modifier
-            .fillMaxSize()
+            .aspectRatio(1f)
 //            .widthIn(
 //                min = calculateTotalFieldSize(minimalItemSpace, maxItemsInRow),
 //                max = calculateTotalFieldSize(maximalItemSpace, maxItemsInRow),
@@ -67,7 +68,6 @@ private fun SudokuField(
                     position = position,
                     size = singleItemSize,
                     provideBorderSides = provideBorderSide,
-                    provideContentData = provideContentData,
                     provideBackgroundColor = provideBackgroundColor,
                     modifier = Modifier.layout { measurable, constraints ->
                         val singleItemPxSize = singleItemSize.roundToPx()
@@ -90,7 +90,12 @@ private fun SudokuField(
                             )
                         }
 
-                    }
+                    },
+                    provideItemContent = remember(position) {
+                        {
+                            provideItemContent(position)
+                        }
+                    },
                 )
             }
         }
@@ -146,8 +151,10 @@ private fun EmptySudokuFieldPreview() {
                 provideBackgroundColor = {
                     SudokuTheme.colors.tileBackground
                 },
-                provideContentData = { _ ->
-                    SudokuPositionValuePresentationModel(4, inputTileType = SudokuInputTileType.SolvedValue)
+                provideItemContent = { _ ->
+                    SudokuPositionComponentContent(
+                    SudokuPositionValuePresentationModel(4, inputTileType = SudokuInputTileType.SolvedValue),
+                    )
                 }
             )
         }
