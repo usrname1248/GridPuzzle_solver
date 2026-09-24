@@ -8,7 +8,19 @@ sealed class SudokuSolvedTurnReason() {
     data class OnlyOptionInArea(
         val area: SudokuAreaDomainModel,
         val positionReasons: Map<SudokuPosition, SudokuSolvedTileType>
-    ): SudokuSolvedTurnReason()
+    ): SudokuSolvedTurnReason() {
+        val externalReasons: List<SudokuPosition> = buildList {
+            positionReasons.forEach { (_, type) ->
+                when(type) {
+                    SudokuSolvedTileType.SolvedTile,
+                    SudokuSolvedTileType.FilledTile -> {}
+                    is SudokuSolvedTileType.RuledOutTile -> {
+                        add(type.becauseOfTile)
+                    }
+                }
+            }
+        }
+    }
 
     data class OnlyValueOptionForThisTile(
         val otherValuesPositions: List<SudokuPosition>

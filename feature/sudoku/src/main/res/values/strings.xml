@@ -17,4 +17,9 @@
     <string name="sudoku_dialog_text_guessed_value">Sudoku contains no logical steps left. This value was guessed.</string>
     <string name="sudoku_dialog_text_no_solution">This sudoku has no solution.</string>
     <string name="sudoku_dialog_confirm_button">OK</string>
+    <string name="sudoku_camera_fab_description">import sudoku data with camera</string>
+    <string name="sudoku_camera_permission_text">Before you can import sudoku with camera, this app needs system permission for using your camera.</string>
+    <string name="sudoku_camera_permission_button">Give camera permission</string>
+    <string name="sudoku_camera_permission_do_not_provide_button">Enter manually</string>
+    <string name="option_alternative">or</string>
 </resources>

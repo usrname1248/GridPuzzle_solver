@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import com.jozeftvrdy.solver.sudoku.presentation.theme.SudokuTheme
 
 @Composable
-fun SudokuMainScreen() {
+fun SudokuMainScreen(
+    onBackClick: () -> Unit
+) {
     SudokuTheme {
-        SudokuScreen()
+        SudokuScreen(onBackClick)
     }
 }

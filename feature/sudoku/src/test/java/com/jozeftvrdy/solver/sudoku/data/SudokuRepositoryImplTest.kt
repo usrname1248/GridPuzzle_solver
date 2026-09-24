@@ -10,16 +10,29 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import com.jozeftvrdy.solver.sudoku.model.createStandardAreas
+import com.jozeftvrdy.solver.sudoku.util.DispatcherProvider
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
-// manually written
+@OptIn(ExperimentalCoroutinesApi::class)
+class TestDispatcherProvider(
+    testDispatcher: CoroutineDispatcher = UnconfinedTestDispatcher()
+) : DispatcherProvider {
+    override val main: CoroutineDispatcher = testDispatcher
+    override val io: CoroutineDispatcher = testDispatcher
+    override val default: CoroutineDispatcher = testDispatcher
+}
+
 class SudokuRepositoryImplTest {
-    val repo = SudokuRepositoryImpl()
+    private val testDispatcherProvider = TestDispatcherProvider()
+    private val repo = SudokuRepositoryImpl(dispatchers = testDispatcherProvider)
 
     val completedSudoku = listOf(
         8, 2, 7, 1, 5, 4, 3, 9, 6,

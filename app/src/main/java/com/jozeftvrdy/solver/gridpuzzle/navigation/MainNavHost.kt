@@ -32,7 +32,9 @@ fun MainNavHost(
         }
 
         composable<MainScreenItem.Sudoku> {
-            SudokuMainScreen()
+            SudokuMainScreen {
+                navController.popBackStack()
+            }
         }
 
         composable<MainScreenItem.Other> {

@@ -13,7 +13,6 @@ internal fun Dp.getBoldLineWidth() = this.times(boldLineWidthConstant).coerceAtL
 data class SudokuPositionValuePresentationModel(
     val value: Int,
     val inputTileType: SudokuInputTileType,
-    val isErrorValue: Boolean = false,
 )
 
 enum class BorderSide {

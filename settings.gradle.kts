@@ -23,3 +23,4 @@ rootProject.name = "GridPuzzle_solver"
 include(":app")
 include(":features:puzzles")
 include(":feature:sudoku")
+include(":core:imageprocessing")

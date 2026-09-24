@@ -3,14 +3,18 @@ package com.jozeftvrdy.solver.sudoku.presentation.screen
 import android.os.Bundle
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.core.os.BundleCompat
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,6 +22,7 @@ import com.jozeftvrdy.solver.sudoku.data.SudokuRepository
 import com.jozeftvrdy.solver.sudoku.model.FinalSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
+import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
@@ -25,10 +30,12 @@ import com.jozeftvrdy.solver.sudoku.model.createStandardAreas
 import com.jozeftvrdy.solver.sudoku.presentation.component.BorderSide
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SolvedSudokuIterationButtonType
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuErrorDialogState
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -37,6 +44,8 @@ class SudokuViewModel(
     savedStateHandle: SavedStateHandle,
     private val sudokuRepository: SudokuRepository,
 ): ViewModel() {
+
+    private val sudokuSavedStateProviderKey = "sudokuScreenBundle"
     private val userAddedPositionStateHandleKey = "userAddedPositionStateHandleKey"
     private val solvedVisibleIndexHandleKey = "solvedVisibleIndex"
     private val isEditableModeHandleKey = "isEditableMode"
@@ -54,7 +63,7 @@ class SudokuViewModel(
     }.toImmutableList()
 
     // todo: not saved in bundle
-    var isEditableMode by mutableStateOf(false)
+    var screenState: SudokuScreenState by mutableStateOf(SudokuScreenState.SolvingScreenState)
 
     // todo: not saved in bundle
     var showDetailedReason by mutableStateOf(false)
@@ -75,6 +84,10 @@ class SudokuViewModel(
             else -> allSolvedResults.take(solvedVisibleIndex + 1)
         }
 
+    val visibleSolvedResultsMap by derivedStateOf {
+        visibleSolvedResults.associateBy { it.position }
+    }
+
     val visibleSolvedResult: PartiallySolvedSudokuResult?
         get() = when (solvedVisibleIndex) {
             Int.MAX_VALUE -> allSolvedResults.lastOrNull()
@@ -90,20 +103,32 @@ class SudokuViewModel(
 
     init {
         // 2. RESTORE: Load data if we are recovering from process death
-        val restoredUserAddedPositions: Array<SudokuTileValueInputModel>? = savedStateHandle[userAddedPositionStateHandleKey]
-        if (restoredUserAddedPositions != null) {
-            _userAddedPositions.putAll(restoredUserAddedPositions.associateBy { it.position })
+        val restoredBundle: Bundle? = savedStateHandle[sudokuSavedStateProviderKey]
+
+        restoredBundle?.run {
+            BundleCompat.getParcelableArray( this, userAddedPositionStateHandleKey, SudokuTileValueInputModel::class.java)
+                ?.filterIsInstance<SudokuTileValueInputModel>()?.associateBy { it.position }?.let(_userAddedPositions::putAll)
+
+            solvedVisibleIndex = getInt(solvedVisibleIndexHandleKey, 0)
+            screenState =
+                BundleCompat.getSerializable(this, isEditableModeHandleKey, SudokuScreenState::class.java)?:SudokuScreenState.SolvingScreenState
         }
-        solvedVisibleIndex = savedStateHandle[solvedVisibleIndexHandleKey]?:0
-        isEditableMode = savedStateHandle[isEditableModeHandleKey]?:false
 
         // Only serialize when the OS actually asks for it
-        savedStateHandle.setSavedStateProvider("screenState") {
+        savedStateHandle.setSavedStateProvider(sudokuSavedStateProviderKey) {
             Bundle().apply {
                 putParcelableArray(userAddedPositionStateHandleKey, _userAddedPositions.values.toTypedArray())
                 putInt(solvedVisibleIndexHandleKey, solvedVisibleIndex)
-                putBoolean(isEditableModeHandleKey, isEditableMode)
+                putSerializable(isEditableModeHandleKey, screenState)
             }
+        }
+
+        viewModelScope.launch {
+            // anytime when _userAddedPositions are changed, clear solved results
+            snapshotFlow { _userAddedPositions.toMap() }
+                .collectLatest { _ ->
+                    allSolvedResults.clear()
+                }
         }
     }
 
@@ -127,18 +152,18 @@ class SudokuViewModel(
 
     fun onSolveNextStepClick() {
         solvedVisibleIndex = 0
-        isEditableMode = false
+        screenState = SudokuScreenState.SolvingScreenState
         startSolving()
     }
 
     fun onSolveAllStepsClick() {
         solvedVisibleIndex = Int.MAX_VALUE
-        isEditableMode = false
+        screenState = SudokuScreenState.SolvingScreenState
         startSolving()
     }
 
     private fun startSolving() {
-        if (_userAddedPositions.isEmpty() or allSolvedResults.isEmpty().not() or (solvingJob != null)) {
+        if (_userAddedPositions.isEmpty() || allSolvedResults.isNotEmpty() || solvingJob != null) {
             return
         }
 
@@ -179,12 +204,10 @@ class SudokuViewModel(
 
     fun onValueSet(inputModel: SudokuTileValueInputModel) {
         _userAddedPositions[inputModel.position] = inputModel
-        allSolvedResults.clear()
     }
 
     fun onValueCleared(position: SudokuPosition) {
         _userAddedPositions.remove(position)
-        allSolvedResults.clear()
     }
 
     fun onErrorDialogDismissRequest() {
@@ -202,7 +225,7 @@ class SudokuViewModel(
                 if (solvedVisibleIndex>0) {
                     if (solvedVisibleIndex == Int.MAX_VALUE) {
                         solvedVisibleIndex = allSolvedResults.lastIndex - 1
-                    } else {
+                    } else if (solvedVisibleIndex > 0) {
                         solvedVisibleIndex--
                     }
                 }
@@ -221,5 +244,21 @@ class SudokuViewModel(
             }
             SolvedSudokuIterationButtonType.Last -> solvedVisibleIndex = Int.MAX_VALUE
         }
+    }
+
+    fun onSudokuImported(data: Map<SudokuPosition, Int>) {
+        data.mapValues { (sudokuPosition, value) ->
+            SudokuTileValueInputModel(
+                value = value,
+                position = sudokuPosition,
+                tileType = SudokuInputTileType.FixedValue
+            )
+        }.also {
+            Snapshot.withMutableSnapshot {
+                _userAddedPositions.clear()
+                _userAddedPositions.putAll(it)
+            }
+        }
+        screenState = SudokuScreenState.EditingScreenState
     }
 }

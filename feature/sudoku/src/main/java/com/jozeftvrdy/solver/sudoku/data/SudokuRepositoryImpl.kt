@@ -9,10 +9,11 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueDataModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueFullSolvedModel
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
-import kotlinx.coroutines.Dispatchers
+import com.jozeftvrdy.solver.sudoku.util.DefaultDispatcherProvider
+import com.jozeftvrdy.solver.sudoku.util.DispatcherProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.flowOn
 
 internal class SudokuTile(
     val position: SudokuPosition,
@@ -42,45 +43,45 @@ internal data class ItemSolution(
     val solveType: SudokuSolveType
 )
 
-class SudokuRepositoryImpl : SudokuRepository {
-    // TODO: inject dispatchers
+class SudokuRepositoryImpl(
+    private val dispatchers: DispatcherProvider = DefaultDispatcherProvider()
+) : SudokuRepository {
+
     override suspend fun solve(
         values: List<SudokuTileValueInputModel>,
         fieldParams: SudokuFieldInputModel
-    ): Flow<SudokuResult> = withContext(Dispatchers.Default) {
-        flow {
-            val sudokuField = SudokuField(
-                valuesInputModel = values,
-                areasInputModel = fieldParams.areasInputModel
-            )
+    ): Flow<SudokuResult> = flow {
+        val sudokuField = SudokuField(
+            valuesInputModel = values,
+            areasInputModel = fieldParams.areasInputModel
+        )
 
-            sudokuField.findFirstInvalidEntry()?.let {
-                emit(
-                    FinalSudokuResult.Failure.InputWithDuplicate(
-                        it.first.position,
-                        it.second.position
-                    )
-                )
-                return@flow
-            }
-
-            solveInternal(
-                sudokuField = sudokuField,
-                onPartialResultFound = {
-                    emit(it)
-                }
-            )?.let {
-                emit(it)
-                return@flow
-            }
-
+        sudokuField.findFirstInvalidEntry()?.let {
             emit(
-                FinalSudokuResult.Success(
-                    successValues = sudokuField.toFullSolvedModel()
+                FinalSudokuResult.Failure.InputWithDuplicate(
+                    it.first.position,
+                    it.second.position
                 )
             )
+            return@flow
         }
-    }
+
+        solveInternal(
+            sudokuField = sudokuField,
+            onPartialResultFound = {
+                emit(it)
+            }
+        )?.let {
+            emit(it)
+            return@flow
+        }
+
+        emit(
+            FinalSudokuResult.Success(
+                successValues = sudokuField.toFullSolvedModel()
+            )
+        )
+    }.flowOn(dispatchers.default)
 
     private suspend fun solveInternal(
         sudokuField: SudokuField,
@@ -248,25 +249,6 @@ class SudokuRepositoryImpl : SudokuRepository {
                 }
             }
         }
-
-//        foundsPositions.forEach { allFoundsPositionForSpecificNumber ->
-//            val allAreasToInsertThisNumber =
-//                allFoundsPositionForSpecificNumber.associateWith { position ->
-//                    sudokuField.areasByPosition[position]!!
-//                }
-//
-//            val invalidFounds = allAreasToInsertThisNumber.filter {
-//                it.value >= 1
-//            }.keys
-//
-//            if (invalidFounds.size == founds.size) {
-//                return null
-//            } else {
-//                invalidFounds.forEach {
-//                    founds.remove(it)
-//                }
-//            }
-//        }
 
         return founds
     }

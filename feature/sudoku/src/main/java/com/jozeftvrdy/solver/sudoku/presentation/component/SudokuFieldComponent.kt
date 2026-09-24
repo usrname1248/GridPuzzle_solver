@@ -28,6 +28,7 @@ fun SudokuField(
     positions: ImmutableList<SudokuPosition>,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     provideBackgroundColor: @Composable (position: SudokuPosition) -> Color,
+    modifier: Modifier = Modifier,
     provideItemContent: @Composable SudokuItemContentScope.(position: SudokuPosition) -> Unit,
 ) {
     val maxItemsCount = positions.maxOf { it.x }
@@ -44,7 +45,7 @@ fun SudokuField(
 
 
     BoxWithConstraints(
-        modifier = Modifier
+        modifier = modifier
             .aspectRatio(1f)
 //            .widthIn(
 //                min = calculateTotalFieldSize(minimalItemSpace, maxItemsInRow),

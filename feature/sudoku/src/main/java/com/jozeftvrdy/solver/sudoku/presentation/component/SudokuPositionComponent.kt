@@ -14,12 +14,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
@@ -108,8 +111,34 @@ internal fun SudokuPositionComponentBackground(
             .fillMaxSize()
             .padding(preBorderPadding)
             .drawBehind {
+                val leftWidth = postBorderPadding.calculateLeftPadding(LayoutDirection.Ltr).toPx()
+                val topHeight = postBorderPadding.calculateTopPadding().toPx()
+                val rightWidth = postBorderPadding.calculateRightPadding(LayoutDirection.Ltr).toPx()
+                val bottomHeight = postBorderPadding.calculateBottomPadding().toPx()
+
+                // Top border (full width)
                 drawRect(
-                    color = borderColor
+                    color = borderColor,
+                    topLeft = Offset(0f, 0f),
+                    size = Size(this.size.width, topHeight)
+                )
+                // Bottom border (full width)
+                drawRect(
+                    color = borderColor,
+                    topLeft = Offset(0f, this.size.height - bottomHeight),
+                    size = Size(this.size.width, bottomHeight)
+                )
+                // Left border (between top and bottom)
+                drawRect(
+                    color = borderColor,
+                    topLeft = Offset(0f, topHeight),
+                    size = Size(leftWidth, this.size.height - topHeight - bottomHeight)
+                )
+                // Right border (between top and bottom)
+                drawRect(
+                    color = borderColor,
+                    topLeft = Offset(this.size.width - rightWidth, topHeight),
+                    size = Size(rightWidth, this.size.height - topHeight - bottomHeight)
                 )
             }
             .padding(postBorderPadding)
