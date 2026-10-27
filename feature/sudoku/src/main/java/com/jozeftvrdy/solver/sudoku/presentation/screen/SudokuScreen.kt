@@ -3,9 +3,13 @@ package com.jozeftvrdy.solver.sudoku.presentation.screen
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.camera.core.ImageCapture
@@ -30,6 +34,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -298,7 +303,7 @@ private fun SudokuAnyContent(
     onSolveNextStepClick: () -> Unit,
     onSolveAllStepsClick: () -> Unit,
     onIterationButtonClicked: (SolvedSudokuIterationButtonType) -> Unit,
-    onSudokuImported: (Map<SudokuPosition, Int>) -> Unit,
+    onSudokuImported: (List<SudokuTileValueInputModel>) -> Unit,
     onCameraPermissionReject: () -> Unit,
     provideHasSolvedContent: () -> Boolean,
 ) {
@@ -786,7 +791,7 @@ private fun SudokuPhotoingPermissionContent(
     positions: ImmutableList<SudokuPosition>,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     onCameraPermissionReject: () -> Unit,
-    onSudokuImported: (Map<SudokuPosition, Int>) -> Unit,
+    onSudokuImported: (List<SudokuTileValueInputModel>) -> Unit,
 ) {
 
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
@@ -810,7 +815,7 @@ private fun SudokuPhotoingContent(
     positions: ImmutableList<SudokuPosition>,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     processSudokuImageUseCase: ProcessSudokuImageUseCase = koinInject(),
-    onSudokuImported: (Map<SudokuPosition, Int>) -> Unit,
+    onSudokuImported: (List<SudokuTileValueInputModel>) -> Unit,
 ) {
     val context = LocalContext.current
 
@@ -848,6 +853,27 @@ private fun SudokuPhotoingContent(
         }
     }
 
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let { pictureUri ->
+            val originalPicture = runCatching {
+                context.contentResolver.openInputStream(pictureUri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+            }.getOrNull()?:return@let
+            isLoadingState.value = true
+
+            scope.launch(Dispatchers.Default) {
+                capturedImageState.value = originalPicture.asImageBitmap()
+                processSudokuImageUseCase.invoke(originalPicture).also {
+                    isLoadingState.value = false
+                    onSudokuImported(it)
+                }
+            }
+        }
+    }
+
     Box (
         modifier = Modifier
             .fillMaxSize(),
@@ -855,6 +881,20 @@ private fun SudokuPhotoingContent(
     ) {
 
         when  {
+//            modifiedImages.isNotEmpty() -> {
+//                Row(
+//                    modifier = Modifier
+//                        .horizontalScroll(rememberScrollState()),
+//                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+//                ) {
+//                    modifiedImages.forEach {
+//                        Image(
+//                            bitmap = it.asImageBitmap(),
+//                            contentDescription = "",
+//                        )
+//                    }
+//                }
+//            }
             capturedImageState.value != null -> {
                 Image(
                     bitmap = capturedImageState.value!!,
@@ -881,6 +921,32 @@ private fun SudokuPhotoingContent(
         ) { _ ->
 
         }
+
+        Button(
+            modifier = Modifier
+                .offset(x = 24.dp, y = 24.dp)
+                .align(Alignment.TopStart),
+            onClick = {
+                pickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            }
+        ) {
+            if (isLoadingState.value) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = SudokuTheme.colors.tileBackground
+                )
+            } else {
+                Text(
+                    "import picture",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 18.sp,
+                    color = SudokuTheme.colors.tileBackground
+                )
+            }
+        }
+
 
         Button(
             modifier = Modifier

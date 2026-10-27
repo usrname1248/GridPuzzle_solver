@@ -20,7 +20,9 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "GridPuzzle_solver"
+includeBuild("build-logic")
 include(":app")
 include(":features:puzzles")
 include(":feature:sudoku")
 include(":core:imageprocessing")
+include(":core:textrecognition")

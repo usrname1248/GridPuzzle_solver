@@ -22,7 +22,6 @@ import com.jozeftvrdy.solver.sudoku.data.SudokuRepository
 import com.jozeftvrdy.solver.sudoku.model.FinalSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.PartiallySolvedSudokuResult
 import com.jozeftvrdy.solver.sudoku.model.SudokuFieldInputModel
-import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.model.SudokuSolvedTurnReason
 import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
@@ -246,18 +245,11 @@ class SudokuViewModel(
         }
     }
 
-    fun onSudokuImported(data: Map<SudokuPosition, Int>) {
-        data.mapValues { (sudokuPosition, value) ->
-            SudokuTileValueInputModel(
-                value = value,
-                position = sudokuPosition,
-                tileType = SudokuInputTileType.FixedValue
-            )
-        }.also {
-            Snapshot.withMutableSnapshot {
-                _userAddedPositions.clear()
-                _userAddedPositions.putAll(it)
-            }
+    fun onSudokuImported(data: List<SudokuTileValueInputModel>) {
+        val groupedData = data.associateBy { it.position }
+        Snapshot.withMutableSnapshot {
+            _userAddedPositions.clear()
+            _userAddedPositions.putAll(groupedData)
         }
         screenState = SudokuScreenState.EditingScreenState
     }

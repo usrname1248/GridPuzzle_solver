@@ -1,6 +1,7 @@
 package com.jozeftvrdy.solver.sudoku
 
 import com.jozeftvrdy.solver.core.imageprocessing.imageProcessingModule
+import com.jozeftvrdy.solver.core.textrecognition.textRecognitionModule
 import com.jozeftvrdy.solver.sudoku.data.SudokuRepository
 import com.jozeftvrdy.solver.sudoku.data.SudokuRepositoryImpl
 import com.jozeftvrdy.solver.sudoku.domain.ProcessSudokuImageUseCase
@@ -12,6 +13,7 @@ import org.koin.dsl.module
 
 val sudokuModule = module {
     includes(imageProcessingModule)
+    includes(textRecognitionModule)
 
     single<DispatcherProvider> {
         DefaultDispatcherProvider()
@@ -19,8 +21,9 @@ val sudokuModule = module {
 
     factory {
         ProcessSudokuImageUseCase(
-            textRecognizerProcessor = get(),
-            dispatchers = get()
+            dispatchers = get(),
+            printedTextRecognizer = get(),
+            handwrittenTextRecognizer = get()
         )
     }
 

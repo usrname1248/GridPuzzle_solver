@@ -28,6 +28,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -39,6 +40,19 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    androidResources {
+        noCompress.add("tflite")
+    }
+}
+
+androidComponents {
+    beforeVariants { variantBuilder ->
+        // To check for a certain build type, use variantBuilder.buildType == "<buildType>"
+        if (variantBuilder.productFlavors.contains("testMode" to "PerformanceTest") && variantBuilder.buildType == "debug") {
+            // Gradle ignores any variants that satisfy the conditions above.
+            variantBuilder.enable = false
+        }
     }
 }
 
