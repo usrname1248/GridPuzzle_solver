@@ -1,6 +1,7 @@
 package com.jozeftvrdy.solver.gridpuzzle.ui.theme
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,8 +20,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jozeftvrdy.solver.core.ui.extensions.Spacer
 import com.jozeftvrdy.solver.gridpuzzle.navigation.MainScreenItem
-import com.jozeftvrdy.solver.gridpuzzle.ui.extension.Spacer
 
 @Composable
 fun MainScreen(
@@ -51,18 +52,27 @@ fun MainScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            modifier = Modifier.size(80.dp),
-                            painter = painterResource(menuItem.iconRes),
-                            contentDescription = menuItem.label
-                        )
+                        Box(
+                            modifier = Modifier.weight(0.4f),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(80.dp),
+                                painter = painterResource(menuItem.iconRes),
+                                contentDescription = menuItem.label
+                            )
+                        }
                         Spacer(12)
-                        Text(
-                            text = menuItem.label,
-                            modifier = Modifier.weight(1f, fill = false),
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 22.sp
-                        )
+                        Box(
+                            modifier = Modifier.weight(0.6f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = menuItem.label,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 22.sp
+                            )
+                        }
                     }
                 }
             }

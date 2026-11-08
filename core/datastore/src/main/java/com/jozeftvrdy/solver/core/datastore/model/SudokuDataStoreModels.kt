@@ -1,10 +1,25 @@
-package com.jozeftvrdy.solver.core.textrecognition
+package com.jozeftvrdy.solver.core.datastore.model
+
+import androidx.annotation.Keep
+
+@Keep
+enum class SudokuImageProcessingType {
+    FastestLeastReliable,
+    Average,
+    SlowestMostReliable;
+
+    companion object {
+        val defaultValue: SudokuImageProcessingType
+            get() = Average
+    }
+}
 
 enum class HandwrittenLibrary {
     LiteRT,
     TensorflowLite,
 }
 
+@Keep
 enum class HandwrittenRecognizerModel(
     val assetName: String,
     val library: HandwrittenLibrary,
@@ -25,4 +40,9 @@ enum class HandwrittenRecognizerModel(
         assetName = "mnist4.tflite",
         library = HandwrittenLibrary.LiteRT,
     );
+
+    companion object {
+        val defaultValue: HandwrittenRecognizerModel
+            get() = Model2
+    }
 }

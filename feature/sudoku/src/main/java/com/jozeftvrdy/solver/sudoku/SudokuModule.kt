@@ -6,6 +6,7 @@ import com.jozeftvrdy.solver.sudoku.data.SudokuRepository
 import com.jozeftvrdy.solver.sudoku.data.SudokuRepositoryImpl
 import com.jozeftvrdy.solver.sudoku.domain.ProcessSudokuImageUseCase
 import com.jozeftvrdy.solver.sudoku.presentation.screen.SudokuViewModel
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenState
 import com.jozeftvrdy.solver.sudoku.util.DefaultDispatcherProvider
 import com.jozeftvrdy.solver.sudoku.util.DispatcherProvider
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -23,7 +24,8 @@ val sudokuModule = module {
         ProcessSudokuImageUseCase(
             dispatchers = get(),
             printedTextRecognizer = get(),
-            handwrittenTextRecognizer = get()
+            handwrittenTextRecognizer = get(),
+            preferences = get(),
         )
     }
 
@@ -33,10 +35,11 @@ val sudokuModule = module {
         )
     }
 
-    viewModel {
+    viewModel { (initialState: SudokuScreenState) ->
         SudokuViewModel(
             savedStateHandle = get(),
             sudokuRepository = get(),
+            initialState = initialState,
         )
     }
 }

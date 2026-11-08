@@ -15,15 +15,25 @@ sealed interface  MainScreenItem: MainNavigationDestination {
     @Serializable
     object Sudoku:  MainScreenItem {
         override val label: String
-            @Composable get() = stringResource(R.string.grid_puzzle_sudoku)
+            @Composable get() = stringResource(R.string.main_menu_item_sudoku)
 
         override val iconRes: Int
             get() = R.drawable.ic_sudoku
     }
     @Serializable
+    object Settings: MainScreenItem {
+        override val label: String
+            @Composable get() = stringResource(R.string.main_menu_item_settings)
+
+        override val iconRes: Int
+            get() = R.drawable.outline_settings_24
+    }
+
+
+    @Serializable
     object Other:  MainScreenItem {
         override val label: String
-            @Composable get() = stringResource(R.string.bottom_nav_item_other)
+            @Composable get() = stringResource(R.string.main_menu_item_other)
 
         override val iconRes: Int
             get() = R.drawable.outline_menu_24
@@ -31,7 +41,7 @@ sealed interface  MainScreenItem: MainNavigationDestination {
 
     companion object {
         val mainMenuItems: List<MainScreenItem> = listOf(
-            Sudoku, Other
+            Sudoku, Settings, Other
         )
     }
 }
@@ -39,4 +49,4 @@ sealed interface  MainScreenItem: MainNavigationDestination {
 @Serializable
 object MainScreenDestination: MainNavigationDestination
 
-interface MainNavigationDestination {}
+interface MainNavigationDestination

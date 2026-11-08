@@ -9,8 +9,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
+import com.jozeftvrdy.solver.core.ui.theme.GridPuzzleSolverTheme
 import com.jozeftvrdy.solver.gridpuzzle.navigation.MainNavHost
-import com.jozeftvrdy.solver.gridpuzzle.ui.theme.GridPuzzleSolverTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

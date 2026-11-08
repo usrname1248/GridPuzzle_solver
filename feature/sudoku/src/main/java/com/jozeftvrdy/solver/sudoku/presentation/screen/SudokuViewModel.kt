@@ -28,7 +28,8 @@ import com.jozeftvrdy.solver.sudoku.model.SudokuTileValueInputModel
 import com.jozeftvrdy.solver.sudoku.model.createStandardAreas
 import com.jozeftvrdy.solver.sudoku.presentation.component.BorderSide
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SolvedSudokuIterationButtonType
-import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuErrorDialogState
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuDialogState
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenErrorState
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -42,6 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class SudokuViewModel(
     savedStateHandle: SavedStateHandle,
     private val sudokuRepository: SudokuRepository,
+    initialState: SudokuScreenState
 ): ViewModel() {
 
     private val sudokuSavedStateProviderKey = "sudokuScreenBundle"
@@ -62,7 +64,7 @@ class SudokuViewModel(
     }.toImmutableList()
 
     // todo: not saved in bundle
-    var screenState: SudokuScreenState by mutableStateOf(SudokuScreenState.SolvingScreenState)
+    var screenState: SudokuScreenState by mutableStateOf(initialState)
 
     // todo: not saved in bundle
     var showDetailedReason by mutableStateOf(false)
@@ -93,12 +95,14 @@ class SudokuViewModel(
             else -> allSolvedResults.getOrNull(solvedVisibleIndex)
         }
 
-    private val _dialogState: MutableState<SudokuErrorDialogState> = mutableStateOf(SudokuErrorDialogState.Hidden)
-    val dialogState: State<SudokuErrorDialogState>
+    private val _dialogState: MutableState<SudokuDialogState> = mutableStateOf(SudokuDialogState.Hidden)
+    val dialogState: State<SudokuDialogState>
         get() = _dialogState
 
     private var solvingJob: Job? = null
     private var solvedVisibleIndex: Int by mutableIntStateOf(0)
+
+    var errorState: SudokuScreenErrorState by mutableStateOf(SudokuScreenErrorState.NoError)
 
     init {
         // 2. RESTORE: Load data if we are recovering from process death
@@ -182,10 +186,12 @@ class SudokuViewModel(
             }.collect { result ->
                 when (result) {
                     is FinalSudokuResult.Failure.InputWithDuplicate -> {
-                        _dialogState.value = SudokuErrorDialogState.Visible.DuplicateInputValue
+                        _dialogState.value = SudokuDialogState.ErrorState.DuplicateInputValue
+                        errorState = SudokuScreenErrorState.DuplicateInput(result)
+                        screenState = SudokuScreenState.EditingScreenState
                     }
                     FinalSudokuResult.Failure.NoSolutionFound -> {
-                        _dialogState.value = SudokuErrorDialogState.Visible.NoSolution
+                        _dialogState.value = SudokuDialogState.ErrorState.NoSolution
                     }
                     is FinalSudokuResult.Success -> {
                     }
@@ -202,15 +208,27 @@ class SudokuViewModel(
     }
 
     fun onValueSet(inputModel: SudokuTileValueInputModel) {
+        clearErrorIfPositionMatchesError(inputModel.position)
         _userAddedPositions[inputModel.position] = inputModel
     }
 
     fun onValueCleared(position: SudokuPosition) {
+        clearErrorIfPositionMatchesError(position)
         _userAddedPositions.remove(position)
     }
 
-    fun onErrorDialogDismissRequest() {
-        _dialogState.value = SudokuErrorDialogState.Hidden
+    fun clearErrorIfPositionMatchesError(position: SudokuPosition) {
+        if ((errorState as? SudokuScreenErrorState.DuplicateInput)?.contains(position) == true) {
+            clearError()
+        }
+    }
+
+    fun clearError() {
+        errorState = SudokuScreenErrorState.NoError
+    }
+
+    fun onDialogDismissRequest() {
+        _dialogState.value = SudokuDialogState.Hidden
     }
 
     fun onIterationButtonClicked(type: SolvedSudokuIterationButtonType) {
@@ -233,7 +251,7 @@ class SudokuViewModel(
                 showDetailedReason = showDetailedReason.not()
 
                 if (showDetailedReason && visibleSolvedResult?.reason is SudokuSolvedTurnReason.GuessedValue) {
-                    _dialogState.value = SudokuErrorDialogState.Visible.GuessedValue
+                    _dialogState.value = SudokuDialogState.ErrorState.GuessedValue
                 }
             }
             SolvedSudokuIterationButtonType.Next -> {
@@ -251,6 +269,8 @@ class SudokuViewModel(
             _userAddedPositions.clear()
             _userAddedPositions.putAll(groupedData)
         }
+        _dialogState.value = SudokuDialogState.WarningState.SudokuImportedNeedUserCheck
+        errorState = SudokuScreenErrorState.NoError
         screenState = SudokuScreenState.EditingScreenState
     }
 }

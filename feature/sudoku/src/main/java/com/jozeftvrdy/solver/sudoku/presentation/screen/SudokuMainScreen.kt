@@ -8,7 +8,6 @@ fun SudokuMainScreen(
     onBackClick: () -> Unit
 ) {
     SudokuTheme {
-
             // For test purposes
 //        SudokuPerformanceScreen()
         SudokuScreen(onBackClick)

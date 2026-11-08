@@ -62,7 +62,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.jozeftvrdy.solver.core.textrecognition.HandwrittenRecognizerModel
+import com.jozeftvrdy.solver.core.datastore.model.HandwrittenRecognizerModel
+import com.jozeftvrdy.solver.core.datastore.model.SudokuImageProcessingType
 import com.jozeftvrdy.solver.sudoku.domain.ProcessSudokuImageUseCase
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
 import com.jozeftvrdy.solver.sudoku.presentation.component.BorderSide
@@ -84,7 +85,6 @@ import java.io.FileOutputStream
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -98,7 +98,7 @@ fun SudokuPerformanceScreen(
     var isProcessing by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("Ready. Import or capture a Sudoku image.") }
     var progressText by remember { mutableStateOf("") }
-    var top5Results by remember { mutableStateOf<List<Pair<HandwrittenRecognizerModel, Int>>>(emptyList()) }
+    var top5Results by remember { mutableStateOf<List<Triple<HandwrittenRecognizerModel, SudokuImageProcessingType, Int>>>(emptyList()) }
     var isCameraMode by remember { mutableStateOf(false) }
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
@@ -232,7 +232,7 @@ fun SudokuPerformanceScreen(
                         progressText = "Starting..."
 
                         scope.launch {
-                            val results: SnapshotStateList<Pair<HandwrittenRecognizerModel, Int>> = mutableStateListOf()
+                            val results: SnapshotStateList<Triple<HandwrittenRecognizerModel, SudokuImageProcessingType, Int>> = mutableStateListOf()
                             runParameterSearch(
                                 useCase = processSudokuImageUseCase,
                                 bitmap = bitmapToProcess,
@@ -248,13 +248,14 @@ fun SudokuPerformanceScreen(
                             )
 
                             Log.w("SudokuSearch", "--- TOP 5 PARAMETER SEARCH RESULTS ---")
-                            results.forEachIndexed { index, (params, matches) ->
+                            results.forEachIndexed { index, (model, type, matches) ->
                                 val percentage = (matches * 1000 / 81) / 10.0f
                                 Log.w(
                                     "SudokuSearch",
                                     "#${index + 1}: Score = $matches/81 ($percentage%) | " +
-                                            "assetName = ${params.assetName}, " +
-                                            "library = ${params.library}"
+                                            "assetName = ${model.assetName}, " +
+                                            "library = ${model.library}, " +
+                                            "type = $type,"
                                 )
                             }
 
@@ -297,7 +298,7 @@ fun SudokuPerformanceScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
 
-                    top5Results.forEachIndexed { index, (params, matches) ->
+                    top5Results.forEachIndexed { index, (model, type, matches) ->
                         val percentage = (matches * 1000 / 81) / 10.0f
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -320,8 +321,10 @@ fun SudokuPerformanceScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = " • assetName: ${params.assetName}\n" +
-                                            " • library: ${params.library}",
+                                    text = " • assetName: ${model.assetName}\n" +
+                                            " • library: ${model.library}\n" +
+                                            " • type: $type"
+                                    ,
                                     fontSize = 12.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.padding(start = 8.dp)
@@ -547,7 +550,7 @@ private suspend fun runParameterSearch(
     useCase: ProcessSudokuImageUseCase,
     bitmap: Bitmap,
     onProgress: (current: Int, total: Int) -> Unit,
-    onResultsUpdated: (List<Pair<HandwrittenRecognizerModel, Int>>) -> Unit
+    onResultsUpdated: (List<Triple<HandwrittenRecognizerModel, SudokuImageProcessingType, Int>>) -> Unit
 ) = withContext(Dispatchers.Default) {
 
     val expectedResult = listOf(
@@ -563,24 +566,14 @@ private suspend fun runParameterSearch(
     )
 
     // 1. Build ranges
-    val cropEdgesValues = generateSequence(0.02f) { (it + 0.02f).takeIf { val1 -> val1 <= 0.125f } }
-        .map { (it * 100).roundToInt() / 100f }
-        .toList()
+    val allParams = HandwrittenRecognizerModel.entries.flatMap { handModel ->
+        SudokuImageProcessingType.entries.map { imageProcessingType ->
+            handModel to imageProcessingType
+        }
+    }
 
-    val firstPadValues = generateSequence(1.00f) { (it + 0.05f).takeIf { val2 -> val2 <= 1.21f } }
-        .map { (it * 100).roundToInt() / 100f }
-        .toList()
-
-    val tileCountValues = (3..5).toList()
-
-    val secondPadValues = generateSequence(1.5f) { (it + 0.5f).takeIf { val3 -> val3 <= 2.6f } }
-        .map { (it * 100).roundToInt() / 100f }
-        .toList()
-
-    val allParams = HandwrittenRecognizerModel.entries
-
-    val totalIterations = allParams.size // 270 iterations
-    val resultsList = Collections.synchronizedList(mutableListOf<Pair<HandwrittenRecognizerModel, Int>>())
+    val totalIterations = allParams.size
+    val resultsList = Collections.synchronizedList(mutableListOf<Triple<HandwrittenRecognizerModel, SudokuImageProcessingType, Int>>())
     val completedCounter = AtomicInteger(0)
 
     // 2. Parallel Execution using Flow flatMapMerge (max 4 concurrent active workers)
@@ -588,7 +581,7 @@ private suspend fun runParameterSearch(
     allParams.asFlow()
         .flatMapMerge(concurrency = 12) { params ->
             flow {
-                val returnedResults = useCase(bitmap, params).associateBy { it.position }
+                val returnedResults = useCase(bitmap,  params.first, params.second).associateBy { it.position }
                 var matchesCount = 0
 
                 for (y in 1..9) {
@@ -611,7 +604,13 @@ private suspend fun runParameterSearch(
             // but adding it explicitly here guarantees safety:
             withContext(Dispatchers.Main) {
                 onProgress(currentCompleted, totalIterations)
-                resultsList.add(params to matchesCount)
+                resultsList.add(
+                    Triple(
+                        params.first,
+                        params.second,
+                        matchesCount
+                    )
+                )
                 resultsList.sortByDescending { it.second }
                 onResultsUpdated(resultsList.take(5))
             }

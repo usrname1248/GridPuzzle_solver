@@ -1,6 +1,9 @@
 package com.jozeftvrdy.solver.sudoku.domain
 
 import android.graphics.Bitmap
+import com.jozeftvrdy.solver.core.datastore.`interface`.SudokuPreferencesRepository
+import com.jozeftvrdy.solver.core.datastore.model.HandwrittenRecognizerModel
+import com.jozeftvrdy.solver.core.datastore.model.SudokuImageProcessingType
 import com.jozeftvrdy.solver.core.imageprocessing.ImageContentExtractor.getCenterContentThat
 import com.jozeftvrdy.solver.core.imageprocessing.ImageProcessor.addWhiteToBeSquare
 import com.jozeftvrdy.solver.core.imageprocessing.ImageProcessor.cropEdges
@@ -14,7 +17,6 @@ import com.jozeftvrdy.solver.core.imageprocessing.ImageProcessor.tileHorizontall
 import com.jozeftvrdy.solver.core.imageprocessing.ImageProcessor.toBlackAndWhite
 import com.jozeftvrdy.solver.core.imageprocessing.ImageProcessor.unifyHeight
 import com.jozeftvrdy.solver.core.textrecognition.HandwrittenNumbersRecognizer
-import com.jozeftvrdy.solver.core.textrecognition.HandwrittenRecognizerModel
 import com.jozeftvrdy.solver.core.textrecognition.PrintedTextRecognizer
 import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
 import com.jozeftvrdy.solver.sudoku.model.SudokuPosition
@@ -25,21 +27,24 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 
-enum class SudokuImageProcessingType {
-    FastestLeastReliable,
-    Average,
-    SlowestMostReliable,
-}
-
 class ProcessSudokuImageUseCase(
     private val dispatchers: DispatcherProvider = DefaultDispatcherProvider(),
     private val printedTextRecognizer: PrintedTextRecognizer,
-    private val handwrittenTextRecognizer: HandwrittenNumbersRecognizer
+    private val handwrittenTextRecognizer: HandwrittenNumbersRecognizer,
+    private val preferences: SudokuPreferencesRepository,
 ) {
     suspend operator fun invoke(
         capturedPicture: Bitmap,
-        handwrittenModel: HandwrittenRecognizerModel = HandwrittenRecognizerModel.Model2,
-        type: SudokuImageProcessingType = SudokuImageProcessingType.Average,
+    ): List<SudokuTileValueInputModel> = invoke(
+        capturedPicture = capturedPicture,
+        handwrittenModel = preferences.getHandwrittenRecognizerModel(),
+        type = preferences.getImageProcessingType()
+    )
+
+    suspend operator fun invoke(
+        capturedPicture: Bitmap,
+        handwrittenModel: HandwrittenRecognizerModel,
+        type: SudokuImageProcessingType,
     ): List<SudokuTileValueInputModel> = when (type) {
         SudokuImageProcessingType.FastestLeastReliable -> ::recognizeHandwrittenFirst
         SudokuImageProcessingType.Average -> ::recognizeChunked
@@ -145,14 +150,14 @@ class ProcessSudokuImageUseCase(
                         val recognizedCharsCount =
                             recognizedString.groupingBy { it }.eachCount()
                         val filteredString = recognizedString.filter { char ->
-                            char in '1'..'9' && (recognizedCharsCount[char] ?: 0) >= 3
+                            char in '1'..'9' && (recognizedCharsCount[char] ?: 0) >= centeredContentTriples.size
                         }
                         val mostUsedFrequency = filteredString.findMostUsedFreq(
-                            frequencyMinimalLength = 3,
-                            requiredRepetitionCount = 3
+                            frequencyMinimalLength = centeredContentTriples.size,
+                            requiredRepetitionCount = centeredContentTriples.size
                         ) ?: return@printedTextRecognition
 
-                        if (mostUsedFrequency.length != 3) return@printedTextRecognition
+                        if (mostUsedFrequency.length != centeredContentTriples.size) return@printedTextRecognition
 
                         return@async List(mostUsedFrequency.length) { index ->
                             SudokuTileValueInputModel(

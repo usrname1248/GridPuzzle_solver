@@ -1,4 +1,4 @@
-package com.jozeftvrdy.solver.gridpuzzle.ui.extension
+package com.jozeftvrdy.solver.core.ui.extensions
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size

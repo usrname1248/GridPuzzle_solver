@@ -13,12 +13,15 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.compose.runtime.livedata)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.collections.immutable)
     implementation(project(":core:imageprocessing"))
     implementation(project(":core:textrecognition"))
+    implementation(project(":core:datastore"))
+    implementation(project(":core:ui"))
 
     // UI & Navigation
     implementation(libs.androidx.activity.compose)

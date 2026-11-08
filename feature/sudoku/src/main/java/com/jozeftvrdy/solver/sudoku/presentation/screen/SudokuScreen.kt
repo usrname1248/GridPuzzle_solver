@@ -2,11 +2,13 @@ package com.jozeftvrdy.solver.sudoku.presentation.screen
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
@@ -77,11 +80,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionState
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.jozeftvrdy.solver.core.ui.components.BackButton
 import com.jozeftvrdy.solver.sudoku.R
 import com.jozeftvrdy.solver.sudoku.domain.ProcessSudokuImageUseCase
 import com.jozeftvrdy.solver.sudoku.model.SudokuInputTileType
@@ -94,7 +100,8 @@ import com.jozeftvrdy.solver.sudoku.presentation.component.SudokuPositionCompone
 import com.jozeftvrdy.solver.sudoku.presentation.component.SudokuPositionComponentContent
 import com.jozeftvrdy.solver.sudoku.presentation.component.SudokuPositionValuePresentationModel
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SolvedSudokuIterationButtonType
-import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuErrorDialogState
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuDialogState
+import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenErrorState
 import com.jozeftvrdy.solver.sudoku.presentation.screen.uiModels.SudokuScreenState
 import com.jozeftvrdy.solver.sudoku.presentation.theme.SudokuTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -103,16 +110,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import org.koin.core.parameter.parametersOf
 import kotlin.coroutines.resume
 
 private const val pickerItemRawSize = 40
+private const val cameraPermission = android.Manifest.permission.CAMERA
 
 private data class EditIconData(
     @param:DrawableRes val drawableRes: Int,
     @param:StringRes val contentDescriptionStringRes: Int,
     val editableStateTarget: SudokuScreenState
 ) {
-
     @Composable
     fun getPainter() = painterResource(drawableRes)
 
@@ -125,7 +133,15 @@ private data class EditIconData(
 fun SudokuScreen(
     onBackClick: () -> Unit
 ) {
-    val vm = koinViewModel<SudokuViewModel>()
+    val context = LocalContext.current
+    val hasCameraPermission = context.checkSelfPermission(cameraPermission) == PackageManager.PERMISSION_GRANTED
+    val vm = koinViewModel<SudokuViewModel>(
+        parameters = {
+            parametersOf(
+                if (hasCameraPermission) SudokuScreenState.PhotoingScreenState else SudokuScreenState.EditingScreenState,
+            )
+        }
+    )
 
     val provideEditContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel? =
         remember(vm) {
@@ -151,6 +167,10 @@ fun SudokuScreen(
             }
         }
 
+    val hasError: (SudokuPosition) -> Boolean = { position ->
+        (vm.errorState as? SudokuScreenErrorState.DuplicateInput)?.contains(position) == true
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize(),
@@ -160,12 +180,7 @@ fun SudokuScreen(
                     Text("Sudoku")
                 },
                 navigationIcon = {
-                    Icon(
-                        modifier = Modifier.clickable(onClick = onBackClick),
-                        painter = painterResource(R.drawable.outline_arrow_back_24),
-                        contentDescription = stringResource(R.string.content_description_back_button),
-                        tint = SudokuTheme.colors.textValueColor
-                    )
+                    BackButton(onClick = onBackClick)
                 },
                 actions = {
                     when (vm.screenState) {
@@ -233,8 +248,13 @@ fun SudokuScreen(
                 provideEditContentData = provideEditContentData,
                 provideSolveContentData = provideSolveContentData,
                 provideBorderSide = vm::calculateBorderSide,
+                hasError = hasError,
                 provideBackgroundColor = provideBackgroundColor@ { position ->
-                    val defaultValue = SudokuTheme.colors.tileBackground
+                    val defaultValue = if (hasError(position)) {
+                        SudokuTheme.colors.tileErrorBackground
+                    } else {
+                        SudokuTheme.colors.tileBackground
+                    }
                     val currentVisibleSolvedResult = vm.visibleSolvedResult?: return@provideBackgroundColor defaultValue
                     return@provideBackgroundColor when {
                         (currentVisibleSolvedResult.position == position) -> {
@@ -283,9 +303,9 @@ fun SudokuScreen(
         }
     }
 
-    ErrorDialog(
+    SudokuDialog(
         vm.dialogState,
-        vm::onErrorDialogDismissRequest,
+        vm::onDialogDismissRequest,
     )
 }
 
@@ -298,6 +318,7 @@ private fun SudokuAnyContent(
     provideSolveContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel?,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     provideBackgroundColor: @Composable (position: SudokuPosition) -> Color,
+    hasError: (position: SudokuPosition) -> Boolean,
     onValueSet: (SudokuTileValueInputModel) -> Unit,
     onValueCleared: (SudokuPosition) -> Unit,
     onSolveNextStepClick: () -> Unit,
@@ -314,11 +335,12 @@ private fun SudokuAnyContent(
                 positions = positions,
                 provideContentData = provideEditContentData,
                 provideBorderSide = provideBorderSide,
+                hasError = hasError,
                 onValueSet = onValueSet,
                 onValueCleared = onValueCleared,
                 onSolveNextStepClick = onSolveNextStepClick,
                 onSolveAllStepsClick = onSolveAllStepsClick,
-                )
+            )
         }
         SudokuScreenState.SolvingScreenState -> {
             SudokuSolvingContent(
@@ -362,6 +384,7 @@ private fun SudokuEditableContent(
     positions: ImmutableList<SudokuPosition>,
     provideContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel?,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
+    hasError: (position: SudokuPosition) -> Boolean,
     onValueSet: (SudokuTileValueInputModel) -> Unit,
     onValueCleared: (SudokuPosition) -> Unit,
     onSolveNextStepClick: () -> Unit,
@@ -378,6 +401,7 @@ private fun SudokuEditableContent(
         SudokuEditableSudokuField(
             selectedValueState = selectedValueState,
             positions = positions,
+            hasError = hasError,
             provideContentData = provideContentData,
             provideBorderSide = provideBorderSide,
             onValueSet = onValueSet,
@@ -402,6 +426,7 @@ private fun SudokuEditableSudokuField(
     selectedValueState: MutableState<SudokuEditableSelectedState?>,
     positions: ImmutableList<SudokuPosition>,
     provideContentData: (position: SudokuPosition) -> SudokuPositionValuePresentationModel?,
+    hasError: (position: SudokuPosition) -> Boolean,
     provideBorderSide: (position: SudokuPosition) -> List<BorderSide>,
     onValueSet: (SudokuTileValueInputModel) -> Unit,
     onValueCleared: (SudokuPosition) -> Unit,
@@ -413,6 +438,8 @@ private fun SudokuEditableSudokuField(
         provideBackgroundColor = { position ->
             if ((selectedValueState.value as? SudokuEditableSelectedState.SudokuEditableSelectedSudokuTile)?.sudokuPosition == position) {
                 SudokuTheme.colors.markedAsAddedTileBackground
+            } else if (hasError(position)) {
+                SudokuTheme.colors.tileErrorBackground
             } else {
                 SudokuTheme.colors.tileBackground
             }
@@ -793,8 +820,7 @@ private fun SudokuPhotoingPermissionContent(
     onCameraPermissionReject: () -> Unit,
     onSudokuImported: (List<SudokuTileValueInputModel>) -> Unit,
 ) {
-
-    val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+    val cameraPermissionState = rememberPermissionState(cameraPermission)
 
     if (cameraPermissionState.status.isGranted) {
         SudokuPhotoingContent(
@@ -881,20 +907,6 @@ private fun SudokuPhotoingContent(
     ) {
 
         when  {
-//            modifiedImages.isNotEmpty() -> {
-//                Row(
-//                    modifier = Modifier
-//                        .horizontalScroll(rememberScrollState()),
-//                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-//                ) {
-//                    modifiedImages.forEach {
-//                        Image(
-//                            bitmap = it.asImageBitmap(),
-//                            contentDescription = "",
-//                        )
-//                    }
-//                }
-//            }
             capturedImageState.value != null -> {
                 Image(
                     bitmap = capturedImageState.value!!,
@@ -980,12 +992,28 @@ fun CameraPreview(
     AndroidView(
         factory = {
             PreviewView(it).apply {
+                controller.enableTorch(true)
                 this.controller = controller
                 controller.bindToLifecycle(lifecycleOwner)
             }
         },
         modifier = modifier
     )
+
+    val context = LocalContext.current
+    val toastText = stringResource(R.string.camera_preview_toast_info)
+
+    LaunchedEffect(context) {
+        lifecycleOwner.repeatOnLifecycle(
+            state = Lifecycle.State.STARTED
+        ) {
+            Toast.makeText(
+                context,
+                toastText,
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 }
 
 private suspend fun takePhoto(
@@ -1106,12 +1134,14 @@ fun SudokuPhotoingPermissionNotGrantedButtonText(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ErrorDialog(
-    dialogState: State<SudokuErrorDialogState>,
+private fun SudokuDialog(
+    dialogState: State<SudokuDialogState>,
     onDismissRequest: () -> Unit,
 ) {
-
-    val visibleDialogStateValue = dialogState.value as? SudokuErrorDialogState.Visible ?: return
+    val visibleDialogStateValue = dialogState.value
+    if (visibleDialogStateValue is SudokuDialogState.Hidden) {
+        return
+    }
 
     BasicAlertDialog(
         onDismissRequest = onDismissRequest

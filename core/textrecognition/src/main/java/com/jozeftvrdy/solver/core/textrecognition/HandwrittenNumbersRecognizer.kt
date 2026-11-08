@@ -10,6 +10,8 @@ import androidx.core.graphics.scale
 import com.google.ai.edge.litert.Accelerator
 import com.google.ai.edge.litert.CompiledModel
 import com.google.ai.edge.litert.Environment
+import com.jozeftvrdy.solver.core.datastore.model.HandwrittenLibrary
+import com.jozeftvrdy.solver.core.datastore.model.HandwrittenRecognizerModel
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.tensorflow.lite.Interpreter
 import java.io.FileInputStream

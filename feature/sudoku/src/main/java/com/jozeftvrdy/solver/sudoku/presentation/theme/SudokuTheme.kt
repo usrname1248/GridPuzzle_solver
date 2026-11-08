@@ -1,10 +1,10 @@
 package com.jozeftvrdy.solver.sudoku.presentation.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import com.jozeftvrdy.solver.core.ui.theme.GridPuzzleSolverTheme
 
 @Composable
 fun SudokuTheme(
@@ -16,8 +16,8 @@ fun SudokuTheme(
     CompositionLocalProvider(
         LocalSudokuColors provides sudokuColors
     ) {
-        MaterialTheme(
-            typography = SudokuTypography,
+        GridPuzzleSolverTheme(
+            darkTheme = darkTheme,
             content = content
         )
     }

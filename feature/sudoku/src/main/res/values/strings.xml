@@ -2,7 +2,6 @@
 <resources>
     <string name="fixed_sudoku_values_subtitle">Predefined / fixed values:</string>
     <string name="already_solved_sudoku_values_subtitle">Already solved values:</string>
-    <string name="content_description_back_button">back button</string>
     <string name="content_description_exit_edit">exit edit mode</string>
     <string name="content_description_enter_edit">enter edit mode</string>
     <string name="sudoku_solve_one_step_btn">Solve next step</string>
@@ -12,9 +11,11 @@
     <string name="iteration_button_next_description">show next solution step</string>
     <string name="iteration_button_last_description">jump to last solution step</string>
     <string name="iteration_button_reason_description">show why this solution</string>
-    <string name="sudoku_dialog_title">Error occurred</string>
+    <string name="sudoku_error_dialog_title">Error occurred</string>
+    <string name="sudoku_warning_dialog_title">Important information</string>
     <string name="sudoku_dialog_text_input_with_errors">Sudoku input contains errors.</string>
     <string name="sudoku_dialog_text_guessed_value">Sudoku contains no logical steps left. This value was guessed.</string>
+    <string name="sudoku_dialog_text_check_import">Camera recognition may occasionally misread numbers or empty cells. Please review the imported Sudoku and correct any mistakes before solving.\n\nYou can adjust text recognition settings at any time in the Settings screen.</string>
     <string name="sudoku_dialog_text_no_solution">This sudoku has no solution.</string>
     <string name="sudoku_dialog_confirm_button">OK</string>
     <string name="sudoku_camera_fab_description">import sudoku data with camera</string>
@@ -22,4 +23,5 @@
     <string name="sudoku_camera_permission_button">Give camera permission</string>
     <string name="sudoku_camera_permission_do_not_provide_button">Enter manually</string>
     <string name="option_alternative">or</string>
+    <string name="camera_preview_toast_info">Tap to focus and adjust exposure</string>
 </resources>

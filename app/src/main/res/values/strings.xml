@@ -1,5 +1,18 @@
 <resources>
     <string name="app_name">GridPuzzle_solver</string>
-    <string name="grid_puzzle_sudoku">Sudoku</string>
-    <string name="bottom_nav_item_other">Other</string>
+    <string name="main_menu_item_sudoku">Sudoku</string>
+    <string name="main_menu_item_settings">Settings</string>
+    <string name="main_menu_item_other">Other</string>
+    <string name="settings_onetime_error_update_data">Updating of some settings data failed. Please recheck your last changes.</string>
+    <string name="image_processing_type_description">Select your preferred recognition speed. Faster processing is quicker but slightly less accurate, whereas slower processing ensures maximum precision.</string>
+    <string name="image_processing_type_fastest">Fastest</string>
+    <string name="image_processing_type_average">Average</string>
+    <string name="image_processing_type_most_precise">Most precise</string>
+    <string name="handwritten_recognizer_model_description">Select the handwriting model that best matches your writing style for optimal accuracy.</string>
+    <string name="handwritten_recognizer_model_1">A</string>
+    <string name="handwritten_recognizer_model_2">B</string>
+    <string name="handwritten_recognizer_model_3">C</string>
+    <string name="handwritten_recognizer_model_4">D</string>
+    <string name="handwritten_recognizer_model_5">E</string>
+    <string name="construction_screen_text">Work in progress…\nNew features soon.</string>
 </resources>
