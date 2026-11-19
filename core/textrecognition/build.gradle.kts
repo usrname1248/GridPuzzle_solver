@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.core.textrecognition"
+    namespace = "dev.fezojko.solver.core.textrecognition"
 }
 
 dependencies {

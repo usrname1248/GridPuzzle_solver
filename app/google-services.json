@@ -1,0 +1,20 @@
+{
+  "project_info": {
+    "project_number": "000000000000",
+    "project_id": "dummy-debug-project",
+    "storage_bucket": "dummy-debug.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+        "android_client_info": {
+          "package_name": "dev.fezojko.solver.gridpuzzle"
+        }
+      },
+      "api_key": [{ "current_key": "AIzaSyDummyKeyForDebugBuildsOnly" }],
+      "services": { "analytics_service": { "status": 1 } }
+    }
+  ],
+  "configuration_version": "1"
+}

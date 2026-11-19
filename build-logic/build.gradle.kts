@@ -2,7 +2,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "com.jozeftvrdy.buildlogic"
+group = "dev.fezojko.buildlogic"
 
 dependencies {
     implementation("com.android.tools.build:gradle:8.13.2")

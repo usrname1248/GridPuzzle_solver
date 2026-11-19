@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.core.ui"
+    namespace = "dev.fezojko.solver.core.ui"
 }
 
 dependencies {

@@ -1,0 +1,45 @@
+package dev.fezojko.solver.gridpuzzle
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
+import dev.fezojko.solver.core.ui.theme.GridPuzzleSolverTheme
+import dev.fezojko.solver.gridpuzzle.navigation.MainNavHost
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            GridPuzzleSolverTheme {
+                val navController = rememberNavController()
+
+                MainNavHost(
+                    navController,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun Greeting(name: String, modifier: Modifier = Modifier) {
+    Text(
+        text = "Hello $name!",
+        modifier = modifier
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GreetingPreview() {
+    GridPuzzleSolverTheme {
+        Greeting("Android")
+    }
+}

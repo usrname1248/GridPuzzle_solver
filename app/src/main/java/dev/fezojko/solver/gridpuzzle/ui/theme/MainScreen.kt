@@ -1,0 +1,81 @@
+package dev.fezojko.solver.gridpuzzle.ui.theme
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.fezojko.solver.core.ui.extensions.Spacer
+import dev.fezojko.solver.gridpuzzle.navigation.MainScreenItem
+
+@Composable
+fun MainScreen(
+    onNavigateToMenuItem: (MainScreenItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Scaffold(
+        modifier = Modifier.fillMaxSize()
+    ) { scaffoldPadding ->
+        Column(
+            modifier = modifier.padding(
+                scaffoldPadding
+            ).systemBarsPadding()
+        ) {
+            repeat(MainScreenItem.mainMenuItems.size) { index ->
+                val menuItem = MainScreenItem.mainMenuItems[index]
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    onClick = { onNavigateToMenuItem(menuItem) }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                        ,
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier.weight(0.4f),
+                            contentAlignment = Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                modifier = Modifier.size(80.dp),
+                                painter = painterResource(menuItem.iconRes),
+                                contentDescription = menuItem.label
+                            )
+                        }
+                        Spacer(12)
+                        Box(
+                            modifier = Modifier.weight(0.6f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = menuItem.label,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 22.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

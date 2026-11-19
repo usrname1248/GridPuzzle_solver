@@ -1,0 +1,24 @@
+package dev.fezojko.solver.gridpuzzle
+
+import android.app.Application
+import dev.fezojko.solver.gridpuzzle.di.module.appModule
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
+
+class GridPuzzleApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        startKoin {
+            // Log Koin events (Level.INFO by default)
+            androidLogger()
+            // Reference Android context
+            androidContext(this@GridPuzzleApp)
+            // Load modules
+            modules(
+                appModule,
+            )
+        }
+    }
+}

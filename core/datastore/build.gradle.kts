@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.core.datastore"
+    namespace = "dev.fezojko.solver.core.datastore"
 }
 
 dependencies {

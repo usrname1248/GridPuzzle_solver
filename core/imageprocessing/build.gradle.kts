@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.core.imageprocessing"
+    namespace = "dev.fezojko.solver.core.imageprocessing"
 
     androidResources {
         noCompress.add("tflite")

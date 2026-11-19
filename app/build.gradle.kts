@@ -3,16 +3,18 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.gms)
+    alias(libs.plugins.firebase.crashlytics.plugin)
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.gridpuzzle"
+    namespace = "dev.fezojko.solver.gridpuzzle"
     compileSdk {
         version = release(36)
     }
 
     defaultConfig {
-        applicationId = "com.jozeftvrdy.solver.gridpuzzle"
+        applicationId = "dev.fezojko.solver.gridpuzzle"
         minSdk = 28
         targetSdk = 36
         versionCode = 1
@@ -70,6 +72,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.kotlinx.serialization.json)
+    releaseImplementation(platform(libs.firebase.bom))
+    releaseImplementation(libs.firebase.crashlytics)
 
     // Navigation
     implementation(libs.androidx.navigation)

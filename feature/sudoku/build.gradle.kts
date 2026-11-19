@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.jozeftvrdy.solver.sudoku"
+    namespace = "dev.fezojko.solver.sudoku"
 }
 
 dependencies {
